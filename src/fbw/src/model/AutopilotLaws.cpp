@@ -169,8 +169,9 @@ void AutopilotLawsModelClass::AutopilotLaws_Voter1(real_T rtu_u1, real_T rtu_u2,
 
 void AutopilotLawsModelClass::step()
 {
-  real_T tmp[9];
+  real_T result_tmp[9];
   real_T result[3];
+  real_T result_0[3];
   real_T rtb_Divide_aw;
   real_T rtb_Divide_e;
   real_T rtb_Gain4;
@@ -207,27 +208,46 @@ void AutopilotLawsModelClass::step()
   boolean_T rtb_Delay_n;
   rtb_GainTheta = AutopilotLaws_P.GainTheta_Gain * AutopilotLaws_U.in.data.Theta_deg;
   rtb_GainTheta1 = AutopilotLaws_P.GainTheta1_Gain * AutopilotLaws_U.in.data.Phi_deg;
-  rtb_Saturation1 = 0.017453292519943295 * rtb_GainTheta;
-  rtb_Mod1_g = 0.017453292519943295 * rtb_GainTheta1;
-  rtb_out_pk = std::tan(rtb_Saturation1);
-  rtb_Saturation = std::sin(rtb_Mod1_g);
-  rtb_Mod1_g = std::cos(rtb_Mod1_g);
-  tmp[0] = 1.0;
-  tmp[3] = rtb_Saturation * rtb_out_pk;
-  tmp[6] = rtb_Mod1_g * rtb_out_pk;
-  tmp[1] = 0.0;
-  tmp[4] = rtb_Mod1_g;
-  tmp[7] = -rtb_Saturation;
-  tmp[2] = 0.0;
-  rtb_Divide_aw = 1.0 / std::cos(rtb_Saturation1);
-  tmp[5] = rtb_Divide_aw * rtb_Saturation;
-  tmp[8] = rtb_Divide_aw * rtb_Mod1_g;
-  rtb_Saturation = AutopilotLaws_P.Gain_Gain_de * AutopilotLaws_U.in.data.p_rad_s * AutopilotLaws_P.Gainpk_Gain;
-  rtb_Saturation1 = AutopilotLaws_P.Gain_Gain_d * AutopilotLaws_U.in.data.q_rad_s * AutopilotLaws_P.Gainqk_Gain;
-  rtb_out_pk = AutopilotLaws_P.Gain_Gain_m * AutopilotLaws_U.in.data.r_rad_s;
+  rtb_Saturation = 0.017453292519943295 * rtb_GainTheta;
+  rtb_Saturation1 = 0.017453292519943295 * rtb_GainTheta1;
+  rtb_Mod1_b = std::tan(rtb_Saturation);
+  rtb_out_pk = std::sin(rtb_Saturation1);
+  rtb_Mod1_g = std::cos(rtb_Saturation1);
+  result_tmp[0] = 1.0;
+  result_tmp[3] = rtb_out_pk * rtb_Mod1_b;
+  result_tmp[6] = rtb_Mod1_g * rtb_Mod1_b;
+  result_tmp[1] = 0.0;
+  result_tmp[4] = rtb_Mod1_g;
+  result_tmp[7] = -rtb_out_pk;
+  result_tmp[2] = 0.0;
+  rtb_Divide_aw = 1.0 / std::cos(rtb_Saturation);
+  result_tmp[5] = rtb_Divide_aw * rtb_out_pk;
+  result_tmp[8] = rtb_Divide_aw * rtb_Mod1_g;
+  rtb_out_pk = AutopilotLaws_P.Gain_Gain_de * AutopilotLaws_U.in.data.p_rad_s * AutopilotLaws_P.Gainpk_Gain;
+  rtb_Mod1_g = AutopilotLaws_P.Gain_Gain_d * AutopilotLaws_U.in.data.q_rad_s * AutopilotLaws_P.Gainqk_Gain;
+  rtb_Mod1_b = AutopilotLaws_P.Gain_Gain_m * AutopilotLaws_U.in.data.r_rad_s;
   for (rtb_on_ground = 0; rtb_on_ground < 3; rtb_on_ground++) {
-    result[rtb_on_ground] = tmp[rtb_on_ground + 6] * rtb_out_pk + (tmp[rtb_on_ground + 3] * rtb_Saturation1 +
-      tmp[rtb_on_ground] * rtb_Saturation);
+    result[rtb_on_ground] = result_tmp[rtb_on_ground + 6] * rtb_Mod1_b + (result_tmp[rtb_on_ground + 3] * rtb_Mod1_g +
+      result_tmp[rtb_on_ground] * rtb_out_pk);
+  }
+
+  rtb_Mod1_b = std::cos(rtb_Saturation);
+  rtb_out_pk = std::sin(rtb_Saturation);
+  rtb_Mod1_g = std::sin(rtb_Saturation1);
+  rtb_Saturation = std::cos(rtb_Saturation1);
+  result_tmp[0] = rtb_Mod1_b;
+  result_tmp[3] = 0.0;
+  result_tmp[6] = -rtb_out_pk;
+  result_tmp[1] = rtb_Mod1_g * rtb_out_pk;
+  result_tmp[4] = rtb_Saturation;
+  result_tmp[7] = rtb_Mod1_b * rtb_Mod1_g;
+  result_tmp[2] = rtb_Saturation * rtb_out_pk;
+  result_tmp[5] = 0.0 - rtb_Mod1_g;
+  result_tmp[8] = rtb_Saturation * rtb_Mod1_b;
+  for (rtb_on_ground = 0; rtb_on_ground < 3; rtb_on_ground++) {
+    result_0[rtb_on_ground] = result_tmp[rtb_on_ground + 6] * AutopilotLaws_U.in.data.bz_m_s2 +
+      (result_tmp[rtb_on_ground + 3] * AutopilotLaws_U.in.data.by_m_s2 + result_tmp[rtb_on_ground] *
+       AutopilotLaws_U.in.data.bx_m_s2);
   }
 
   rtb_Saturation = AutopilotLaws_P.Gain_Gain_n * AutopilotLaws_U.in.data.gear_strut_compression_1 -
@@ -705,9 +725,9 @@ void AutopilotLawsModelClass::step()
 
   rtb_Gain_hl = AutopilotLaws_P.Gain_Gain_da * std::asin(rtb_Divide_aw);
   rtb_Sum2_ea = AutopilotLaws_P.Gain1_Gain_kw * AutopilotLaws_U.in.data.alpha_deg;
-  rtb_Y = AutopilotLaws_U.in.data.bz_m_s2 * std::sin(rtb_Sum2_ea);
+  rtb_Y = result_0[2] * std::sin(rtb_Sum2_ea);
   rtb_Sum2_ea = std::cos(rtb_Sum2_ea);
-  rtb_Sum2_ea *= AutopilotLaws_U.in.data.bx_m_s2;
+  rtb_Sum2_ea *= result_0[0];
   rtb_Sum2_i = AutopilotLaws_U.in.data.V_ias_kn - AutopilotLaws_U.in.input.V_c_kn;
   rtb_Divide_aw = rtb_Sum2_i * AutopilotLaws_P.Gain1_Gain_hn;
   if (rtb_Divide_aw > AutopilotLaws_P.Saturation_UpperSat_j4) {
@@ -816,9 +836,9 @@ void AutopilotLawsModelClass::step()
   rtb_out_pk = AutopilotLaws_P.Gain_Gain_fz * std::asin(rtb_Divide_aw);
   rtb_Mod1_p = AutopilotLaws_P.Constant1_Value_dg - rtb_GainTheta;
   rtb_Sum2_ea = AutopilotLaws_P.Gain1_Gain_fy * AutopilotLaws_U.in.data.alpha_deg;
-  rtb_Y = AutopilotLaws_U.in.data.bz_m_s2 * std::sin(rtb_Sum2_ea);
+  rtb_Y = result_0[2] * std::sin(rtb_Sum2_ea);
   rtb_Sum2_ea = std::cos(rtb_Sum2_ea);
-  rtb_Sum2_ea *= AutopilotLaws_U.in.data.bx_m_s2;
+  rtb_Sum2_ea *= result_0[0];
   rtb_Divide_aw = rtb_Sum2_i * AutopilotLaws_P.Gain1_Gain_fr;
   if (rtb_Divide_aw > AutopilotLaws_P.Saturation_UpperSat_e) {
     rtb_Divide_aw = AutopilotLaws_P.Saturation_UpperSat_e;
@@ -1039,6 +1059,9 @@ void AutopilotLawsModelClass::step()
   AutopilotLaws_Y.out.data.Psi_magnetic_deg = AutopilotLaws_U.in.data.Psi_magnetic_deg;
   AutopilotLaws_Y.out.data.Psi_magnetic_track_deg = AutopilotLaws_U.in.data.Psi_magnetic_track_deg;
   AutopilotLaws_Y.out.data.Psi_true_deg = AutopilotLaws_U.in.data.Psi_true_deg;
+  AutopilotLaws_Y.out.data.ax_m_s2 = result_0[0];
+  AutopilotLaws_Y.out.data.ay_m_s2 = result_0[1];
+  AutopilotLaws_Y.out.data.az_m_s2 = result_0[2];
   AutopilotLaws_Y.out.data.bx_m_s2 = AutopilotLaws_U.in.data.bx_m_s2;
   AutopilotLaws_Y.out.data.by_m_s2 = AutopilotLaws_U.in.data.by_m_s2;
   AutopilotLaws_Y.out.data.bz_m_s2 = AutopilotLaws_U.in.data.bz_m_s2;

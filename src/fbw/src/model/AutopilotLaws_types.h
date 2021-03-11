@@ -126,6 +126,9 @@ typedef struct {
   real_T Psi_magnetic_deg;
   real_T Psi_magnetic_track_deg;
   real_T Psi_true_deg;
+  real_T ax_m_s2;
+  real_T ay_m_s2;
+  real_T az_m_s2;
   real_T bx_m_s2;
   real_T by_m_s2;
   real_T bz_m_s2;
