@@ -1,19 +1,9 @@
-/*
- * A32NX
- * Copyright (C) 2020-2021 FlyByWire Simulations and its contributors
+/**
+ * WARNING
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * CODE IN THIS FILE IS OLD. THIS STATUS AREA WAS UNUSED AND THE ORIGINAL ASOBO
+ * STATUS AREA WAS EXTENDED FURTHER. WHEN STARTING TO USE THIS COMPONENT. PLEASE
+ * PORT ANY FUNCTIONALITY FOUND ON THE ORIGINAL STATUS AREA.
  */
 
 import './StatusArea.scss';
@@ -31,7 +21,7 @@ export const StatusArea = () => {
     if (sat > 99 || sat < -99) {
         sat = sat > 99 ? 99 : -99;
     }
-    const adirsState = getSimVar('L:A320_Neo_ADIRS_STATE', 'Enum');
+    const adirsState = getSimVar('L:A32NX_ADIRS_STATE', 'Enum');
     const satPrefix = sat > 0 ? '+' : '';
     const tatPrefix = tat > 0 ? '+' : '';
     const seconds = Math.floor(zulu);

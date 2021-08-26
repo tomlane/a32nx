@@ -1,149 +1,79 @@
-# <img src="https://raw.githubusercontent.com/flybywiresim/fbw-branding/master/svg/FBW-Logo.svg" placeholder="FlyByWire" width="400"/>
+<img src="https://raw.githubusercontent.com/flybywiresim/fbw-branding/master/svg/FBW-Logo.svg" placeholder="FlyByWire" width="400"/>
 
-
-[![Discord](https://img.shields.io/discord/738864299392630914.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/UjzuHMU)
+# FlyByWire Simulations A32NX
 
 [![GitHub latest release version](https://img.shields.io/github/v/release/flybywiresim/a32nx.svg?style=flat)](https://github.com/flybywiresim/a32nx/releases/latest)
 [![Github All Releases download count](https://img.shields.io/github/downloads/flybywiresim/a32nx/total.svg?style=flat)](https://github.com/flybywiresim/a32nx/releases/latest)
 [![GitHub contributors](https://img.shields.io/github/contributors/flybywiresim/a32nx.svg?style=flat)](https://github.com/flybywiresim/a32nx/graphs/contributors)
 
-## About
+[![Discord](https://img.shields.io/discord/738864299392630914.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/UjzuHMU)
+[![Twitter](https://img.shields.io/badge/-@FlyByWireSim-e84393?label=&logo=twitter&logoColor=ffffff&color=6399AE&labelColor=00C2CB)](https://twitter.com/FlybywireSim)
+[![YouTube](https://img.shields.io/badge/-FlyByWireSimulations-e84393?label=&logo=youtube&logoColor=ffffff&color=6399AE&labelColor=00C2CB)](https://www.youtube.com/c/FlyByWire-Simulations)
+[![Facebook](https://img.shields.io/badge/-FlyByWireSimulations-e84393?label=&logo=facebook&logoColor=ffffff&color=6399AE&labelColor=00C2CB)](https://www.facebook.com/FlyByWireSimulations/)
+[![Instagram](https://img.shields.io/badge/-@FlyByWireSim-e84393?label=&logo=instagram&logoColor=ffffff&color=6399AE&labelColor=00C2CB)](https://instagram.com/flybywiresim)
 
-The A32NX Project is a community-driven open source project to create a free Airbus A320neo in Microsoft Flight Simulator that is as close to reality as possible. It aims to enhance the default A320neo by improving the systems depth and functionality to bring it up to payware-level, all for free.
+The A32NX Project is a community-driven open source project to create a free Airbus A320neo in Microsoft Flight Simulator that is as close to reality as possible.
 
 The following aircraft configuration is currently simulated:
 
  ```
- Model      A320-251N
- Engine     LEAP 1A-26
- FMGS       Honeywell Pegasus II
- FWC Std.   H2F9C
+ Model       A320-251N
+ Engine      CFM LEAP 1A-26
+ FMGS        Honeywell Pegasus II
+ FWC Std.    H2F9C
  ```
 
 Please note that this configuration may change in the future as the A32NX project evolves and changes.
 
-### SimBrief Integration
-✈[SimBrief Airframe with the correct weights](https://www.simbrief.com/system/dispatch.php?sharefleet=eyJ0cyI6IjE2MDU4MjAwNzg5NDYiLCJiYXNldHlwZSI6IkEzMjAiLCJjb21tZW50cyI6IkZMWSBCWSBXSVJFIiwiaWNhbyI6IkEyME4iLCJuYW1lIjoiQTMyME5FTyBGQlciLCJlbmdpbmVzIjoiTEVBUC0xQTI2IiwicmVnIjoiQTIwTiIsImZpbiI6IiIsInNlbGNhbCI6IiIsImhleGNvZGUiOiIiLCJjYXQiOiJNIiwicGVyIjoiQyIsImVxdWlwIjoiU0RFM0ZHSElSV1kiLCJ0cmFuc3BvbmRlciI6IkxCMSIsInBibiI6IkExQjFDMUQxTzFTMSIsImV4dHJhcm1rIjoiIiwibWF4cGF4IjoiMTgwIiwid2d0dW5pdHMiOiJLR1MiLCJvZXciOiI0MTAwMCIsIm16ZnciOiI2MjUwMCIsIm10b3ciOiI3OTAwMCIsIm1sdyI6IjY2MDAwIiwibWF4ZnVlbCI6IjIxMjczIiwicGF4d2d0IjoiMTA0IiwiZGVmYXVsdGNpIjoiIiwiZnVlbGZhY3RvciI6IlAwMCIsImNydWlzZW9mZnNldCI6IlAwMDAwIn0-) Credits: [@viniciusfont](https://github.com/viniciusfont)
+## How to download and use the aircraft
 
-Pilot ID can be found in the Optional Entries section of the Dispatch Options page.
+To download the aircraft please go to the [FlyByWire Simulations website](https://flybywiresim.com). Please be sure to thoroughly read the [documentation](https://docs.flybywiresim.com) on how to install and use the aircraft.
 
-## Downloads
+If you're still running into problems after reading through the documentation, feel free to jump into our Discord [#support channel](https://discord.gg/snueqJjDUN).
 
-### A32NX Installer
+## How to contribute
 
-Download the new A32NX installer where you can select either the Stable or Developer build, and download and install the mod directly into your community folder, [download here](https://api.flybywiresim.com/installer) ([source](https://github.com/flybywiresim/installer/)).
+If you would like to contribute to the project, see [Contributing.md](.github/Contributing.md)
 
-### Traditional Download Methods
+### Known issues and bug reporting
 
-#### Latest Stable Release
-
-This is the recommended stable release, as it has been thoroughly tested.
-
-[Download the stable release here.](https://github.com/flybywiresim/a32nx/releases/latest/download/flybywiresim-a32nx.zip)
-
-You can see the changelog on the releases page: [View Here.](https://github.com/flybywiresim/a32nx/releases)
-
-#### Unstable Master Branch Build
-
-This has the latest features, but is much more unstable, use at your own risk.
-
-[Download developer build here.](https://github.com/flybywiresim/a32nx/releases/download/vmaster/A32NX-master.zip)
-
-[View info about the latest build here.](https://github.com/flybywiresim/a32nx/releases/tag/vmaster)
-
-#### Unstable Master Branch Build (with custom FBW)
-
-This version is the same as the regular master/development version, but with the WIP custom fly-by-wire system. Expect issues with flight directors/autopilot if you intend to use this version. No support will be provided via Discord.
-
-[Download custom FBW development build here.](https://api.flybywiresim.com/api/v1/download?url=https://flybywiresim-packages.b-cdn.net/vmaster-cfbw/A32NX-master-cfbw.zip)
-
-[**IMPORTANT:** view warnings and info for the custom FBW build here.](https://github.com/flybywiresim/a32nx/tree/fbw/docs)
-
-## Installation
-
-### Please follow ALL steps in this README if you encounter any issues with installation before seeking support.
-
-Open the zip that you downloaded from one of the links above, and drag the A32NX folder inside the zip into your Community folder.
-
-See below for the location of your Community folder:
-
-For the Microsoft Store edition AND/OR Gamepass edition:
-- Copy the "A32NX" folder into your community package folder. It is located in:
-`C:\Users\[YOUR USERNAME]\AppData\Local\Packages\Microsoft.FlightSimulator_<RANDOMLETTERS>\LocalCache\Packages\Community`.
-
-For the Steam edition:
-- Copy the "A32NX" folder into your community package folder. It is located in:
-`C:\Users\[YOUR USERNAME]\AppData\Roaming\Microsoft Flight Simulator\Packages\Community`.
-
-For the Boxed edition:
-- Copy the "A32NX" folder into your community package folder. It is located in:
-`C:\Users\[YOUR USERNAME]\AppData\Local\MSFSPackages\Community`.
-
-If the above methods do not work:
-- You can find your community folder by going into FS2020 general options and enabling developer mode. You will see a menu appear on top. Go to tools and virtual file system. Click on watch bases and your community folder will be listed in one of the folders.
-- Please make sure you're copying the "A32NX" folder into your community package folder, NOT the "flybywiresim-a32nx" folder.
-
-## Contributing
-
-See [Contributing.md](.github/Contributing.md)
-
-## Known Issues (Please note that most issues are being worked on and some of them may even be fixed in the master branch)
-
-- Captain's PFD may occasionally turn off during flight
-- No Smoking switch doesn't use a full range of motion.
-- Automatic ECAM page switching has minor bugs.
-- AP not following the flight plan (leaking input values affect, but don't disconnect the AP) [Workaround: Set dead-zones for your input device higher] 
-- Autopilot goes direct to RWY on APP (same with the default A320) [Workaround: Use DIR to a waypoint or selected heading]
-- Upper ECAM displays wrong THR levers position / N1 rating.
-- Newly added ASOBO A320 liveries are incompatible with the A32NX mod. 
-- Ruder keybindings not working (you have to set your keybinding to rudder axis right and left)
-- Wing dips on landing (due to bad transition to direct law in flare, same with the default A320)  [Workaround use minimal aileron input on landing]
-- Black screens / unable to start (conflict with another mod/livery or incorrect installation of the A32NX mod, use the [installer](https://api.flybywiresim.com/installer))
-
-## License
-
-The original contents of this repository are DUAL LICENSED.
-
-Original textual-form source code in this repository is licensed under the GNU General Public License version 3. Artistic assets (including but not limited to images, sound banks, 3D models, and textures) are licensed under [Creative Commons CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-
-Any other original works found to be not explicitly covered by the above definitions are all rights reserved to avoid ambiguities at the moment, but we are very permissive about their use if you contact us.
-
-**Microsoft Flight Simulator © Microsoft Corporation. The FlyByWire Simulations A32NX was created under Microsoft's "Game Content Usage Rules" using assets from Microsoft Flight Simulator, and it is not endorsed by or affiliated with Microsoft.**
+Our [known issues](https://docs.flybywiresim.com/start/reported-issues) list contains the most commonly reported issues. Should you have an issue not found on this list, then please take a look at the reported issues within the [issue tracker](https://github.com/flybywiresim/a32nx/issues) and report a new issue if your issue isn't found there. You can also use the issue tracker to request a new feature.
 
 ## FAQ
 
-**Q: Can I download the aircraft in the current state?**
+### What liveries are available?
 
-A: Yes, see [Downloads](#Downloads).
+Liveries for the A32NX can be found on [Flightsim.to](https://flightsim.to). However, default A320neo liveries are not compatible with the A32NX.
 
-**Q: Where is the plane in-sim?**
+### When is the next update?
 
-A: The mod is added on top of the default A320neo from Asobo. If you want to uninstall it and revert to the original aircraft, just delete the A32NX folder in your community folder.
+We don't know, since it depends on many factors. We will announce each new stable version via [Discord](https://discord.gg/flybywire) and our social media channels listed above.
 
-**Q: What are the liveries available?**
+### How do I join the team?
 
-A: All liveries for the default A320 are compatible with the A32NX Mod. You can download some of your favourite liveries at [Flightsim.to](https://flightsim.to).
+Read [Contributing.md](.github/Contributing.md) and join our Discord to get started.
 
-**Q: When will it be released?**
+### Is the A32NX payware?
 
-A: The project is an ongoing rolling release. See [Downloads](#Downloads).
+No, it is a completely free aircraft, open-source.
 
-**Q: When is the next update?**
+### How do we report bugs?
 
-A: We don't know, since it depends on many factors. We will announce each Stable build update via [discord](https://discord.gg/flybywire) and our social media: [Facebook](https://www.facebook.com/FlyByWireSimulations), [Twitter](https://twitter.com/FlybywireSim).
+Please read the [known Issues and bug reporting](#known-issues-and-bug-reporting) section.
 
-**Q: How do I join the team?**
+### Why is my version not the same as what I see others using?
 
-A: Head over to [Contributing.md](.github/Contributing.md) and join our Discord to get started.
+We have two versions: stable and development. The stable version is a 'snapshot' of the development which we regard as stable with the current version of the simulator. The developer build is updated daily and is a constant work in progress and although we test thoroughly each update, minor issues may occur from time to time.
 
-**Q: Is it payware?**
+## License
 
-A: No, it is a completely free aircraft, open-source.
+Original source code assets present in this repository are licensed under the GNU GPLv3.
+Original 3D assets are licensed under CC BY-NC 4.0.
 
-**Q: How do we report bugs?**
+Microsoft Flight Simulator © Microsoft Corporation. The FlyByWire Simulations A32NX was created under Microsoft's "Game Content Usage Rules" using assets from Microsoft Flight Simulator, and it is not endorsed by or affiliated with Microsoft.
 
-A: Report bugs to us in the [Discord server](https://discord.gg/flybywire), under the #help channel, or by creating a GitHub issue. Just make sure to search for existing issues first before creating a new one.
+The contents of distribution packages built from the sources in this repository are therefore licensed as follows:
 
-**Q: Why is my version not the same as what I see others using?**
-
-A: We have two versions, the Stable and Developer (Master). The Stable version is a 'snapshot' of the development which we regard as stable with the current version of the simulator. The Developer build is updated daily and is a constant work in progress and although we test thoroughly each update, minor issues may occur from time to time. If you find this to be the case, you can report these issues in #help in discord or via GitHub Issues (Check there is not an existing issue of the same nature as yours).
+- in the case of original source code from FBW or compiled binaries generated from it, under GPLv3.
+- in the case of original 3D assets from FBW, under CC BY-NC 4.0.
+- in the case of assets covered by the "Game Content Usage Rules", under the license granted by those rules.

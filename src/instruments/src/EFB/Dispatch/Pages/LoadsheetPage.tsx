@@ -1,23 +1,6 @@
-/*
- * A32NX
- * Copyright (C) 2020-2021 FlyByWire Simulations and its contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
+import { usePersistentProperty } from '@instruments/common/persistence';
+import { IconMinus, IconPlus } from '@tabler/icons';
 import React, { useRef, useState, useEffect } from 'react';
-import './Loadsheet.scss';
 
 type LoadsheetPageProps = {
     loadsheet: string,
@@ -27,7 +10,7 @@ const LoadSheetWidget = (props: LoadsheetPageProps) => {
     const position = useRef({ top: 0, y: 0 });
     const ref = useRef<HTMLDivElement>(null);
 
-    const [fontSize, setFontSize] = useState(14);
+    const [fontSize, setFontSize] = usePersistentProperty<string>('LOADSHEET_FONTSIZE', '14');
     const [imageSize, setImageSize] = useState(60);
 
     useEffect(() => {
@@ -49,7 +32,7 @@ const LoadSheetWidget = (props: LoadsheetPageProps) => {
         }
     }, [fontSize]);
 
-    const mouseDownHandler = (event) => {
+    const handleMouseDown = (event) => {
         position.current.top = ref.current ? ref.current.scrollTop : 0;
         position.current.y = event.clientY;
 
@@ -69,8 +52,8 @@ const LoadSheetWidget = (props: LoadsheetPageProps) => {
         document.removeEventListener('mouseup', mouseUpHandler);
     };
 
-    const fontIncreaseHandler = () => {
-        let cFontSize = fontSize;
+    const handleFontIncrease = () => {
+        let cFontSize = (Number)(fontSize);
         let cImageSize = imageSize;
 
         if (cFontSize < 26) {
@@ -80,8 +63,8 @@ const LoadSheetWidget = (props: LoadsheetPageProps) => {
         }
     };
 
-    const fontDecreaseHandler = () => {
-        let cFontSize = fontSize;
+    const handleFontDecrease = () => {
+        let cFontSize = (Number)(fontSize);
         let cImageSize = imageSize;
 
         if (cFontSize > 14) {
@@ -92,42 +75,46 @@ const LoadSheetWidget = (props: LoadsheetPageProps) => {
     };
 
     const handleScaling = (cFontSize, cImageSize) => {
-        setFontSize(cFontSize);
+        setFontSize((String)(cFontSize));
         setImageSize(cImageSize);
     };
 
     return (
-        <div className="px-6">
+        <div className="mt-6">
             <div className="w-full">
-                <div className="relative bg-gray-800 rounded-xl p-6 text-white font-mono shadow-lg mr-4">
+                <div className="text-white overflow-hidden bg-navy-lighter rounded-2xl shadow-lg p-6 h-efb-nav relative">
                     {props.loadsheet !== 'N/A' ? (
                         <>
-                            <div className="flex flex-col justify-end absolute bottom-5 right-16">
+                            <div className="flex flex-col justify-end absolute bottom-6 right-16">
                                 <button
                                     type="button"
-                                    onClick={fontIncreaseHandler}
-                                    className="font-size-button"
+                                    onClick={handleFontIncrease}
+                                    className="z-10 mb-2 bg-navy-regular p-2 rounded-lg bg-opacity-50"
                                 >
-                                    +
+                                    <IconPlus size={30} />
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={fontDecreaseHandler}
-                                    className="font-size-button"
+                                    onClick={handleFontDecrease}
+                                    className="z-10 bg-navy-regular p-2 rounded-lg bg-opacity-50"
                                 >
-                                    -
+                                    <IconMinus size={30} />
                                 </button>
                             </div>
                             <div
                                 ref={ref}
-                                className="loadsheet-container grabbable show-scrollbar overflow-y-scroll"
-                                onMouseDown={mouseDownHandler}
+                                className="loadsheet-container grabbable scrollbar overflow-y-scroll"
+                                onMouseDown={handleMouseDown}
                                 // eslint-disable-next-line react/no-danger
                                 dangerouslySetInnerHTML={{ __html: props.loadsheet }}
                             />
                         </>
                     ) : (
-                        'N/A'
+                        <>
+                            <div className="h-full flex items-center justify-center text-lg">
+                                Please Import Flightplan from Simbrief.
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

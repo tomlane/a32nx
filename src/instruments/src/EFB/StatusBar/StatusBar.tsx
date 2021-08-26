@@ -1,107 +1,14 @@
-/*
- * A32NX
- * Copyright (C) 2020-2021 FlyByWire Simulations and its contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
-import React from 'react';
-import { IconBatteryCharging, IconWifi } from '@tabler/icons';
+import React, { useState, useEffect } from 'react';
+import { IconAccessPoint, IconBattery4, IconPower } from '@tabler/icons';
 import { connect } from 'react-redux';
 import { efbClearState } from '../Store/action-creator/efb';
 
-declare const SimVar;
-
-type Props = {
+type StatusBarProps = {
     initTime: Date,
-    updateTimeSinceStart: Function,
-    updateCurrentTime: Function,
+    updateTimeSinceStart: (newTimeSinceStart: string) => void,
+    updateCurrentTime: (newCurrentTime: Date) => void,
     efbClearState: () => {}
 }
-
-type TimeState = {
-    currentTime: Date,
-    timeSinceStart: string
-}
-
-class StatusBar extends React.Component<Props, TimeState> {
-    interval: any;
-
-    constructor(props: Props) {
-        super(props);
-        this.state = {
-            currentTime: this.props.initTime,
-            timeSinceStart: '',
-        };
-    }
-
-    componentDidMount() {
-        this.interval = setInterval(() => {
-            const date = new Date();
-            const timeSinceStart = this.timeSinceStart(date);
-            this.props.updateCurrentTime(date);
-            this.props.updateTimeSinceStart(timeSinceStart);
-            this.setState({ currentTime: date });
-        }, 1000);
-    }
-
-    componentWillUnmount() {
-        clearInterval(this.interval);
-    }
-
-    timeSinceStart(currentTime: Date) {
-        const diff = currentTime.getTime() - this.props.initTime.getTime();
-        const minutes = Math.floor(diff / 1000 / 60);
-        const diffMinusMinutes = diff - (minutes * 1000 * 60);
-        const seconds = Math.floor(diffMinusMinutes / 1000);
-
-        return formatTime(([minutes, seconds]));
-    }
-
-    render() {
-        const { efbClearState } = this.props;
-
-        return (
-            <div className="flex items-center justify-between px-6 py-1 text-white font-medium leading-none">
-                <div>flyPad</div>
-                <div>{`${formatTime(([this.state.currentTime.getUTCHours(), this.state.currentTime.getUTCMinutes()]))}z`}</div>
-                <div className="flex items-center">
-                    <IconWifi className="mr-2" size={22} stroke={1.5} strokeLinejoin="miter" />
-                    100%
-
-                    {/* TODO find a way to use `setSimVar` here */}
-                    <IconBatteryCharging
-                        onClick={() => {
-                            efbClearState();
-                            SimVar.SetSimVarValue('L:A32NX_EFB_TURNED_ON', 'number', 0);
-                        }}
-                        className="ml-2"
-                        color="yellow"
-                        size={25}
-                        stroke={1.5}
-                        strokeLinejoin="miter"
-                    />
-                </div>
-            </div>
-        );
-    }
-}
-
-export default connect(
-    () => {},
-    { efbClearState },
-)(StatusBar);
 
 export function formatTime(numbers: number[]) {
     if (numbers.length === 2) {
@@ -113,7 +20,7 @@ export function formatTime(numbers: number[]) {
 }
 
 export function dateFormat(date: number): string {
-    let numberWithSuffix = '0';
+    let numberWithSuffix;
     const dateRemOf10 = date % 10;
     const dateRemOf100 = date % 100;
 
@@ -129,3 +36,66 @@ export function dateFormat(date: number): string {
 
     return numberWithSuffix;
 }
+
+const StatusBar = (props: StatusBarProps) => {
+    const [currentTime, setCurrentTime] = useState(props.initTime);
+
+    function calculateTimeSinceStart(currentTime: Date) {
+        const diff = currentTime.getTime() - props.initTime.getTime();
+        const minutes = Math.floor(diff / 1000 / 60);
+        const diffMinusMinutes = diff - (minutes * 1000 * 60);
+        const seconds = Math.floor(diffMinusMinutes / 1000);
+
+        return formatTime(([minutes, seconds]));
+    }
+
+    useEffect(() => {
+        setInterval(() => {
+            const date = new Date();
+            const timeSinceStart = calculateTimeSinceStart(date);
+            props.updateCurrentTime(date);
+            props.updateTimeSinceStart(timeSinceStart);
+            setCurrentTime(date);
+        }, 1000);
+
+        return () => clearInterval();
+    }, []);
+
+    const { efbClearState } = props;
+
+    return (
+        <div className="fixed w-full py-2 px-8 flex items-center justify-between bg-navy-medium text-white font-medium leading-none text-lg">
+            <div className="flex items-center">
+                <IconAccessPoint className="mr-2 animate-pulse" size={30} stroke={1.5} strokeLinejoin="miter" />
+                flyPad
+            </div>
+            <div>{`${formatTime(([currentTime.getUTCHours(), currentTime.getUTCMinutes()]))}z`}</div>
+            <div className="flex items-center">
+                100%
+
+                {/* TODO find a way to use `setSimVar` here */}
+                <IconBattery4
+                    className="ml-2"
+                    size={30}
+                    stroke={1.5}
+                    strokeLinejoin="miter"
+                />
+                <IconPower
+                    onClick={() => {
+                        efbClearState();
+                        SimVar.SetSimVarValue('L:A32NX_EFB_TURNED_ON', 'number', 0);
+                    }}
+                    className="ml-6"
+                    size={25}
+                    stroke={1.5}
+                    strokeLinejoin="miter"
+                />
+            </div>
+        </div>
+    );
+};
+
+export default connect(
+    () => {},
+    { efbClearState },
+)(StatusBar);

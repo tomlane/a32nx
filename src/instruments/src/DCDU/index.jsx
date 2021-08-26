@@ -1,23 +1,6 @@
-/*
- * A32NX
- * Copyright (C) 2020-2021 FlyByWire Simulations and its contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 import ReactDOM from 'react-dom';
 import { useState } from 'react';
+
 import {
     renderTarget,
     useInteractionEvent,
@@ -26,16 +9,10 @@ import {
 } from '../util.js';
 import './style.scss';
 
-// TODO: Move anything dependent on ac power change to A32NX_Core
 function powerAvailable() {
-    // These are inlined so they're only evaluated if prior conditions return false.
-    return (
-        Simplane.getEngineActive(0) === 1 || Simplane.getEngineActive(1) === 1
-    ) || (
-        getSimVar('L:APU_GEN_ONLINE')
-    ) || (
-        getSimVar('EXTERNAL POWER AVAILABLE:1') && getSimVar('EXTERNAL POWER ON')
-    );
+    // Each DCDU is powered by a different DC BUS. Sadly the cockpit only contains a single DCDU emissive.
+    // Once we have two DCDUs running, the capt. DCDU should be powered by DC 1, and F/O by DC 2.
+    return getSimVar('L:A32NX_ELEC_DC_1_BUS_IS_POWERED', 'Bool') || getSimVar('L:A32NX_ELEC_DC_2_BUS_IS_POWERED', 'Bool');
 }
 
 function SelfTest() {
@@ -84,9 +61,9 @@ function Idle() {
         </>
     );
 }
-
 function DCDU() {
     const [state, setState] = useState('DEFAULT');
+    const [opacity, setOpacity] = useState('0');
 
     useUpdate((_deltaTime) => {
         if (state === 'OFF') {
@@ -96,6 +73,7 @@ function DCDU() {
         } else if (!powerAvailable()) {
             setState('OFF');
         }
+        setOpacity(getSimVar('L:A32NX_MFD_MASK_OPACITY', 'number'));
     });
 
     switch (state) {
@@ -115,16 +93,35 @@ function DCDU() {
                 setState('WAITING');
             }
         }, 8000);
-        return <SelfTest />;
+        return (
+            <>
+                <div className="BacklightBleed" />
+                <div className="LcdOverlayDcdu" style={{ opacity }} />
+                <SelfTest />
+            </>
+        );
+
     case 'WAITING':
         setTimeout(() => {
             if (powerAvailable()) {
                 setState('IDLE');
             }
         }, 12000);
-        return <WaitingForData />;
+        return (
+            <>
+                <div className="BacklightBleed" />
+                <div className="LcdOverlayDcdu" style={{ opacity }} />
+                <WaitingForData />
+            </>
+        );
     case 'IDLE':
-        return <Idle />;
+        return (
+            <>
+                <div className="BacklightBleed" />
+                <div className="LcdOverlayDcdu" style={{ opacity }} />
+                <Idle />
+            </>
+        );
     default:
         throw new RangeError();
     }

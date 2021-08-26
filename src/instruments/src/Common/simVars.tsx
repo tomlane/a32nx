@@ -1,21 +1,3 @@
-/*
- * A32NX
- * Copyright (C) 2020-2021 FlyByWire Simulations and its contributors
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 import * as React from 'react';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { useInteractionEvents, useUpdate } from './hooks';
@@ -56,10 +38,10 @@ const normalizeUnitName = (unit: UnitName): UnitName => {
 
 type SimVarSetter = <T extends SimVarValue>(oldValue: T) => T;
 
-type RetrieveSimVar = (name: string, unit: UnitName, force?: boolean, global?: boolean) => SimVarValue;
+type RetrieveSimVar = (name: string, unit: UnitName, force?: boolean, varType?: number) => SimVarValue;
 type UpdateSimVar = (name: string, unit: UnitName, newValueOrSetter: SimVarValue | SimVarSetter, proxy?: string) => void;
-type RegisterSimVar = (name: string, unit: UnitName, maxStaleness: number, global: boolean) => void;
-type UnregisterSimVar = (name: string, unit: UnitName, maxStaleness: number, global: boolean) => void;
+type RegisterSimVar = (name: string, unit: UnitName, maxStaleness: number, varType: number) => void;
+type UnregisterSimVar = (name: string, unit: UnitName, maxStaleness: number, varType: number) => void;
 
 const errorCallback = () => {
     throw Error('useSimVar was called in a React tree with no SimVarProvider');
@@ -83,8 +65,6 @@ type SimVarCache = Record<string, {
     value: SimVarValue,
     lastUpdatedAgo: number,
 }>;
-
-declare const SimVar; // this can also be replaced once /typings are available
 
 /**
  * This component provides the basic functionality for the useSimVar hooks.
@@ -121,10 +101,16 @@ const SimVarProvider: React.FC = ({ children }) => {
                 // it.
                 const [name, rawUnit] = key.split('/');
                 const unit = normalizeUnitName(rawUnit as UnitName);
+                let value;
+                if (name.startsWith('_GLOBAL_')) {
+                    value = SimVar.GetGlobalVarValue(name.substr(8), unit);
+                } else if (name.startsWith('_GAME_')) {
+                    value = SimVar.GetGameVarValue(name.substr(6), unit);
+                } else {
+                    value = SimVar.GetSimVarValue(name, unit);
+                }
                 stateUpdates[key] = {
-                    value: name.startsWith('_GLOBAL_')
-                        ? SimVar.GetGlobalVarValue(name.substr(8), unit)
-                        : SimVar.GetSimVarValue(name, unit),
+                    value,
                     lastUpdatedAgo: lastUpdatedAgo % threshold,
                 };
             } else {
@@ -142,7 +128,16 @@ const SimVarProvider: React.FC = ({ children }) => {
         });
     });
 
-    const getKey = (name: string, unit: UnitName, global: boolean) => `${global ? '_GLOBAL_' : ''}${name}/${normalizeUnitName(unit)}`;
+    const getKey = (name: string, unit: UnitName, varType: number) => {
+        switch (varType) {
+        default:
+            return `${name}/${normalizeUnitName(unit)}`;
+        case 1:
+            return `_GLOBAL_${name}/${normalizeUnitName(unit)}`;
+        case 2:
+            return `_GAME_${name}/${normalizeUnitName(unit)}`;
+        }
+    };
 
     /**
      * This function will be called by the SimVar hooks through the context and
@@ -153,13 +148,23 @@ const SimVarProvider: React.FC = ({ children }) => {
      * @param force Whether to always bypass the cache and always retrieve it
      * from the simulator.
      */
-    const retrieve: RetrieveSimVar = (name, unit, force, global) => {
-        const key = getKey(name, unit, global || false);
+    const retrieve: RetrieveSimVar = (name, unit, force, varType) => {
+        const key = getKey(name, unit, varType || 0);
         if (cache[key] && !force) {
             return cache[key].value;
         }
-
-        const value = global ? SimVar.GetGlobalVarValue(name, unit) : SimVar.GetSimVarValue(name, unit);
+        let value;
+        switch (varType) {
+        default:
+            value = SimVar.GetSimVarValue(name, unit);
+            break;
+        case 1:
+            value = SimVar.GetGlobalVarValue(name, unit);
+            break;
+        case 2:
+            value = SimVar.GetGameVarValue(name, unit);
+            break;
+        }
         setCache((oldCache) => ({
             ...oldCache,
             [key]: {
@@ -184,7 +189,7 @@ const SimVarProvider: React.FC = ({ children }) => {
      * operation.
      */
     const update: UpdateSimVar = (name, unit, value, proxy) => {
-        const key = getKey(name, unit, false);
+        const key = getKey(name, unit, 0);
         setCache((oldCache) => {
             const newValue = typeof value === 'function' ? value(oldCache[key].value) : value;
             SimVar.SetSimVarValue((proxy || name), unit, newValue);
@@ -203,8 +208,8 @@ const SimVarProvider: React.FC = ({ children }) => {
      * and ensures the SimVar with the supplied name and unit will be updated
      * every maxStaleness.
      */
-    const register: RegisterSimVar = (name, unit, maxStaleness, global) => {
-        const key = getKey(name, unit, global);
+    const register: RegisterSimVar = (name, unit, maxStaleness, varType) => {
+        const key = getKey(name, unit, varType);
         if (!listeners.current[key]) {
             listeners.current[key] = [];
         }
@@ -216,8 +221,8 @@ const SimVarProvider: React.FC = ({ children }) => {
      * and notifies us that there is one listener less for this specific SimVar
      * and unit combination.
      */
-    const unregister: UnregisterSimVar = (name, unit, maxStaleness, global): void => {
-        const key = getKey(name, unit, global);
+    const unregister: UnregisterSimVar = (name, unit, maxStaleness, varType): void => {
+        const key = getKey(name, unit, varType);
         const old = listeners.current[key];
         if (!Array.isArray(old) || old.length === 0) {
             throw new Error('Attempted to unregisterHook with no known listener');
@@ -273,7 +278,7 @@ const SimVarProvider: React.FC = ({ children }) => {
  *
  * @example
  * // only refresh the SimVar every 500ms (unless this SimVar is lower elsewhere)
- * const [lightsTest] = useSimVar('L:XMLVAR_LTS_Test', 'Bool', 500);
+ * const [lightsTest] = useSimVar('L:A32NX_OVHD_INTLT_ANN', 'Bool', 500);
  *
  * @returns {[*, (function(*): void)]}
  *
@@ -284,9 +289,13 @@ const SimVarProvider: React.FC = ({ children }) => {
 export const useSimVar = (
     name: string,
     unit: UnitName,
-    maxStaleness: number = 0,
+    maxStaleness = 0,
 ): [SimVarValue, (newValueOrSetter: SimVarValue | SimVarSetter
 ) => void] => {
+    if (process.env.SIMVAR_DISABLE) {
+        return [0, () => {}];
+    }
+
     const value = useSimVarValue(name, unit, maxStaleness);
     const setter = useSimVarSetter(name, unit);
     return [value, setter];
@@ -316,7 +325,7 @@ export const useSimVar = (
 export const useGlobalVar = (
     name: string,
     unit: UnitName,
-    maxStaleness: number = 0,
+    maxStaleness = 0,
 ): SimVarValue => {
     const contextValue = useContext(context);
 
@@ -326,7 +335,7 @@ export const useGlobalVar = (
         // - one the parameters below (name, unit, maxStaleness) has changed.
         // In these cases, we want to register our current parameters with the
         // SimVarProvider that we access through the context.
-        contextValue.register(name, unit, maxStaleness, true);
+        contextValue.register(name, unit, maxStaleness, 1);
         return () => {
             // This part of useEffect will be called whenever either:
             // - one of the parameters below (name, unit, maxStaleness) is about
@@ -334,11 +343,60 @@ export const useGlobalVar = (
             // - the component is about to unmount
             // In these cases, we want to unregister our current parameters from
             // the SimVar provider, that we again access through the context.
-            contextValue.unregister(name, unit, maxStaleness, true);
+            contextValue.unregister(name, unit, maxStaleness, 1);
         };
     }, [name, unit, maxStaleness]);
 
-    return contextValue.retrieve(name, unit, false, true);
+    return contextValue.retrieve(name, unit, false, 1);
+};
+
+/**
+ * The useGameVar hook provides an easy way to read and write GameVars from
+ * React. The signature is similar to useSimVar, except for the return being a
+ * single value as it is non-writeable.
+ *
+ * @param name The name of the useGameVar.
+ * @param unit The unit of the useGameVar.
+ * @param maxStaleness The maximum time in milliseconds that may elapse before
+ * the next render will cause a useGameVar refresh from the simulator. This
+ * parameter is only an upper bound! If another hook requests the same useGameVar
+ * with a lower maxStaleness, this hook will also benefit from that and refresh
+ * the value more often.
+ *
+ * @example
+ * // only refresh the useGameVar every 200ms (unless this useGameVar is lower elsewhere)
+ * const time = useGameVar('CAMERA POS IN PLANE', 'xyz', 200);
+ *
+ * @returns {[*, (function(*): void)]}
+ *
+ * @see {@link useSimVar} if you're trying to access a SimVar instead
+ */
+export const useGameVar = (
+    name: string,
+    unit: UnitName,
+    maxStaleness = 0,
+): SimVarValue => {
+    const contextValue = useContext(context);
+
+    useEffect(() => {
+        // This part of useEffect will be called whenever either:
+        // - the component has just mounted, or
+        // - one the parameters below (name, unit, maxStaleness) has changed.
+        // In these cases, we want to register our current parameters with the
+        // SimVarProvider that we access through the context.
+        contextValue.register(name, unit, maxStaleness, 2);
+        return () => {
+            // This part of useEffect will be called whenever either:
+            // - one of the parameters below (name, unit, maxStaleness) is about
+            //   to change, or
+            // - the component is about to unmount
+            // In these cases, we want to unregister our current parameters from
+            // the SimVar provider, that we again access through the context.
+            contextValue.unregister(name, unit, maxStaleness, 2);
+        };
+    }, [name, unit, maxStaleness]);
+
+    return contextValue.retrieve(name, unit, false, 2);
 };
 
 /**
@@ -377,7 +435,7 @@ export const useInteractionSimVar = (
     name: string,
     unit: UnitName,
     interactionEvents: string | string[],
-    maxStaleness: number = 500,
+    maxStaleness = 500,
 ): [SimVarValue, (newValueOrSetter: SimVarValue | SimVarSetter
 ) => void] => {
     const contextValue = useContext(context);
@@ -421,9 +479,13 @@ export const useSplitSimVar = (
     readUnit: UnitName,
     writeName: string,
     writeUnit?: UnitName,
-    maxStaleness: number = 0,
+    maxStaleness = 0,
 ): [SimVarValue, (newValueOrSetter: SimVarValue | SimVarSetter
 ) => void] => {
+    if (process.env.SIMVAR_DISABLE) {
+        return [0, () => {}];
+    }
+
     const value = useSimVarValue(readName, readUnit, maxStaleness);
     const setter = useSimVarSetter(readName, writeUnit || readUnit, writeName);
     return [value, setter];
@@ -443,7 +505,7 @@ export const useSimVarValue = (name: string, unit: UnitName, maxStaleness: numbe
         // - one the parameters below (name, unit, maxStaleness) has changed.
         // In these cases, we want to register our current parameters with the
         // SimVarProvider that we access through the context.
-        contextValue.register(name, unit, maxStaleness, false);
+        contextValue.register(name, unit, maxStaleness, 0);
         return () => {
             // This part of useEffect will be called whenever either:
             // - one of the parameters below (name, unit, maxStaleness) is about
@@ -451,7 +513,7 @@ export const useSimVarValue = (name: string, unit: UnitName, maxStaleness: numbe
             // - the component is about to unmount
             // In these cases, we want to unregister our current parameters from
             // the SimVar provider, that we again access through the context.
-            contextValue.unregister(name, unit, maxStaleness, false);
+            contextValue.unregister(name, unit, maxStaleness, 0);
         };
     }, [name, unit, maxStaleness]);
 
