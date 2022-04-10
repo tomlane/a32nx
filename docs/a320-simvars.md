@@ -1588,7 +1588,7 @@ In the variables below, {number} should be replaced with one item in the set: { 
     - The direction of the wind relative to true north.
 
 - A32NX_ADIRS_IR_{number}_WIND_DIRECTION_BNR
-    - Arinc429Word<Degrees>
+    - Arinc429Word<Knots>
     - [-180, 180]
     - The direction of the wind relative to true north.
 
