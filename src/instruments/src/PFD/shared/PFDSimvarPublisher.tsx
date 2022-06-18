@@ -1,4 +1,5 @@
-import { EventBus, SimVarDefinition, SimVarValueType, SimVarPublisher } from 'msfssdk';
+import { EventBus, SimVarDefinition, SimVarValueType } from 'msfssdk/data';
+import { SimVarPublisher } from 'msfssdk/instruments';
 
 export interface PFDSimvars {
     coldDark: number;
@@ -337,7 +338,7 @@ export class PFDSimvarPublisher extends SimVarPublisher<PFDSimvars> {
         ['beta', { name: PFDVars.beta, type: SimVarValueType.Degree }],
         ['betaTargetActive', { name: PFDVars.betaTargetActive, type: SimVarValueType.Number }],
         ['betaTarget', { name: PFDVars.betaTarget, type: SimVarValueType.Number }],
-        ['latAcc', { name: PFDVars.latAcc, type: SimVarValueType.GForce }],
+        ['latAcc', { name: PFDVars.latAcc, type: SimVarValueType.Number }],
         ['crzAltMode', { name: PFDVars.crzAltMode, type: SimVarValueType.Bool }],
         ['tcasModeDisarmed', { name: PFDVars.tcasModeDisarmed, type: SimVarValueType.Bool }],
         ['flexTemp', { name: PFDVars.flexTemp, type: SimVarValueType.Number }],

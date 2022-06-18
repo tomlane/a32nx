@@ -15,9 +15,14 @@ import { LandingSystem } from './LandingSystemIndicator';
 import { AirspeedIndicator, AirspeedIndicatorOfftape, MachNumber } from './SpeedIndicator';
 import { VerticalSpeedIndicator } from './VerticalSpeedIndicator';
 
+let index = -1;
+
 export const getDisplayIndex = () => {
     const url = document.getElementsByTagName('a32nx-pfd')[0].getAttribute('url');
-    return url ? parseInt(url.substring(url.length - 1), 10) : 0;
+    if (index === -1) {
+        index = url ? parseInt(url.substring(url.length - 1), 10) : 0;
+    }
+    return index;
 };
 
 interface PFDProps extends ComponentProps {
