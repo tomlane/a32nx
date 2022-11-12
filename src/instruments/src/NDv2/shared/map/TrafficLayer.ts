@@ -36,11 +36,8 @@ export class TrafficLayer implements MapLayer<NdTraffic> {
     }
 
     private paintIntruder(isColorLayer: boolean, context: CanvasRenderingContext2D, x: number, y: number, intruder: NdTraffic) {
-        const vertSpeed = Math.round(intruder.bitfield / 10);
-        const intrusionLevel = Math.abs(intruder.bitfield % 10);
-
         let color;
-        switch (intrusionLevel) {
+        switch (intruder.intrusionLevel) {
         case TaRaIntrusion.TRAFFIC:
             // paint intruder symbol
             color = '#fff';
@@ -62,7 +59,7 @@ export class TrafficLayer implements MapLayer<NdTraffic> {
             break;
         }
         // paint vertical speed arrow (-/+ 500 fpm)
-        this.paintVertArrow(vertSpeed, context, x, y, isColorLayer ? color : '#040405', isColorLayer ? 1.6 : 3.5);
+        this.paintVertArrow(intruder.vertSpeed, context, x, y, isColorLayer ? color : '#040405', isColorLayer ? 1.6 : 3.5);
 
         // paint relative altitude
         context.font = '21px Ecam';

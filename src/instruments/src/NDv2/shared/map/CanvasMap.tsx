@@ -216,7 +216,7 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
 
                 // Full time option installed: For all ranges except in ZOOM ranges NDRange > 9NM
                 if (!MathUtils.pointInPolygon(x, y, tcasMask)) {
-                    if (Math.abs(intruder.bitfield % 10) < TaRaIntrusion.TA) {
+                    if (intruder.intrusionLevel < TaRaIntrusion.TA) {
                         // Remove if beyond viewable range
                         return;
                     }
