@@ -408,9 +408,9 @@ class SpeedIndicator extends DisplayComponent<{ bus: EventBus }> {
 
     private readonly trueAirSpeedRef = FSComponent.createRef<SVGTextElement>();
 
-    private readonly groundSpeedRegister = Arinc429Register.empty();
+    private readonly groundSpeedRegister = Arinc429RegisterSubject.createEmpty();
 
-    private readonly trueAirSpeedRegister = Arinc429Register.empty();
+    private readonly trueAirSpeedRegister = Arinc429RegisterSubject.createEmpty();
 
     private readonly groundSpeedVisible = Subject.create(false)
 
@@ -421,33 +421,21 @@ class SpeedIndicator extends DisplayComponent<{ bus: EventBus }> {
 
         const sub = this.props.bus.getSubscriber<AdirsSimVars>();
 
-        sub.on('groundSpeed').whenChanged().handle((value) => {
-            this.groundSpeedRegister.set(value);
+        sub.on('groundSpeed').whenChanged().handle((value) => this.groundSpeedRegister.setWord(value));
 
+        this.groundSpeedRegister.sub((data) => {
             const element = this.groundSpeedRef.instance;
 
-            if (this.groundSpeedRegister.isNormalOperation()) {
-                this.groundSpeedVisible.set(true);
+            element.textContent = data.isNormalOperation() ? Math.round(data.value).toString() : '';
+        }, true);
 
-                element.textContent = Math.round(this.groundSpeedRegister.value).toString();
-            } else {
-                this.groundSpeedVisible.set(false);
-            }
-        });
+        sub.on('trueAirSpeed').whenChanged().handle((value) => this.trueAirSpeedRegister.setWord(value));
 
-        sub.on('trueAirSpeed').whenChanged().handle((value) => {
-            this.trueAirSpeedRegister.set(value);
-
+        this.trueAirSpeedRegister.sub((data) => {
             const element = this.trueAirSpeedRef.instance;
 
-            if (this.trueAirSpeedRegister.isNormalOperation()) {
-                this.trueAirSpeedVisible.set(true);
-
-                element.textContent = Math.round(this.trueAirSpeedRegister.value).toString();
-            } else {
-                this.trueAirSpeedVisible.set(false);
-            }
-        });
+            element.textContent = data.isNormalOperation() ? Math.round(data.value).toString() : '';
+        }, true);
     }
 
     render(): VNode | null {
