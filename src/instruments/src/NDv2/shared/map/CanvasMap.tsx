@@ -91,7 +91,7 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
         sub.on('set_map_range_radius').handle((v) => this.mapRangeRadius.set(v));
         // sub.on('set_map_efis_mode').handle((v) => this.mapMode.set(v));
 
-        sub.on('ndMode').handle((v) => this.mapMode.set(v));
+        sub.on('ndMode').whenChanged().handle((v) => this.mapMode.set(v));
 
         this.setupCallbacks();
         this.setupEvents();
@@ -186,7 +186,6 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
 
     private handleNewTraffic(newTraffic: NdTraffic[]) {
         this.traffic.length = 0; // Reset traffic display
-        console.log(this.mapMode.get());
         if (this.mapMode.get() !== EfisNdMode.PLAN) {
             newTraffic.forEach((intruder: NdTraffic) => {
                 const latLong: Coordinates = { lat: intruder.lat, long: intruder.lon };

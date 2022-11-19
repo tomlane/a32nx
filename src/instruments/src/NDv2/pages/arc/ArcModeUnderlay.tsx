@@ -3,6 +3,7 @@ import { DisplayComponent, EventBus, FSComponent, MappedSubject, Subject, Subscr
 import { MathUtils } from '@shared/MathUtils';
 import { rangeSettings } from '@shared/NavigationDisplay';
 import { EcpSimVars } from 'instruments/src/MsfsAvionicsCommon/providers/EcpBusSimVarPublisher';
+import { TcasSimVars } from 'instruments/src/MsfsAvionicsCommon/providers/TcasBusPublisher';
 
 export interface ArcModeOverlayProps {
     bus: EventBus,
@@ -24,19 +25,25 @@ export class ArcModeUnderlay extends DisplayComponent<ArcModeOverlayProps> {
     onAfterRender(node: VNode) {
         super.onAfterRender(node);
 
-        const sub = this.props.bus.getSubscriber<EcpSimVars>();
+        const sub = this.props.bus.getSubscriber<EcpSimVars & TcasSimVars>();
 
         sub.on('ndRangeSetting').whenChanged().handle((value) => {
             this.rangeValue.set(rangeSettings[value]);
 
             this.handleRingVisibilities();
         });
+
+        sub.on('tcasMode').whenChanged().handle((value) => {
+            this.tcasMode.set(value);
+
+            this.handleRingVisibilities();
+        });
     }
 
     private handleRingVisibilities() {
-        this.circleSmallestRangeRef.instance.style.visibility = (this.tcasMode.get() === 0 || this.rangeValue.get() > 10) ? 'visible' : 'hidden';
-        this.dashedSmallestRangeRef.instance.style.visibility = (this.tcasMode.get() > 0 && this.rangeValue.get() === 10) ? 'visible' : 'hidden';
-        this.dashedSmallRangeRef.instance.style.visibility = (this.tcasMode.get() > 0 && this.rangeValue.get() === 20) ? 'visible' : 'hidden';
+        this.circleSmallestRangeRef.instance.style.visibility = (this.tcasMode.get() === 0 || this.rangeValue.get() > 10) ? '' : 'hidden';
+        this.dashedSmallestRangeRef.instance.style.visibility = (this.tcasMode.get() > 0 && this.rangeValue.get() === 10) ? '' : 'hidden';
+        this.dashedSmallRangeRef.instance.style.visibility = (this.tcasMode.get() > 0 && this.rangeValue.get() === 20) ? '' : 'hidden';
     }
 
     render(): VNode | null {

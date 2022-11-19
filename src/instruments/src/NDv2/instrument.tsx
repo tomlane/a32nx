@@ -131,6 +131,7 @@ class A32NX_ND extends BaseInstrument {
 
         this.tcasBusPublisher.subscribe('tcasTaOnly');
         this.tcasBusPublisher.subscribe('tcasFault');
+        this.tcasBusPublisher.subscribe('tcasMode');
 
         FSComponent.render(<NDComponent bus={this.bus} />, document.getElementById('ND_CONTENT'));
     }
