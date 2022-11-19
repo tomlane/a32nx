@@ -3,7 +3,6 @@ import { ClockEvents, DisplayComponent, EventBus, FSComponent, MappedSubject, Su
 import { Arinc429Word } from '@shared/arinc429';
 import { SimVarString } from '@shared/simvar';
 import { EfisNdMode, EfisNdRangeValue, rangeSettings } from '@shared/NavigationDisplay';
-import { TcasMode } from '@tcas/lib/TcasConstants';
 import { DisplayUnit } from '../MsfsAvionicsCommon/displayUnit';
 import { AdirsSimVars } from '../MsfsAvionicsCommon/SimVarTypes';
 import { NDSimvars } from './NDSimvarPublisher';
@@ -229,7 +228,6 @@ export class NDComponent extends DisplayComponent<NDProps> {
                         bus={this.props.bus}
                         ref={this.roseLSPage}
                         heading={this.magneticHeadingWord}
-                        tcasMode={Subject.create(TcasMode.STBY)}
                         rangeValue={this.mapRangeRadius as Subject<EfisNdRangeValue>}
                         isUsingTrackUpMode={this.isUsingTrackUpMode}
                     />
@@ -237,7 +235,6 @@ export class NDComponent extends DisplayComponent<NDProps> {
                         bus={this.props.bus}
                         ref={this.roseVorPage}
                         heading={this.magneticHeadingWord}
-                        tcasMode={Subject.create(TcasMode.STBY)}
                         rangeValue={this.mapRangeRadius as Subject<EfisNdRangeValue>}
                         isUsingTrackUpMode={this.isUsingTrackUpMode}
                         index={1} // FIXME
@@ -246,7 +243,6 @@ export class NDComponent extends DisplayComponent<NDProps> {
                         bus={this.props.bus}
                         ref={this.roseNavPage}
                         heading={this.magneticHeadingWord}
-                        tcasMode={Subject.create(TcasMode.STBY)}
                         rangeValue={this.mapRangeRadius as Subject<EfisNdRangeValue>}
                         isUsingTrackUpMode={this.isUsingTrackUpMode}
                     />

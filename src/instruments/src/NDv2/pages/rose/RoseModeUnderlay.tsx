@@ -1,18 +1,28 @@
-import { FSComponent, DisplayComponent, ComponentProps, MappedSubject, Subscribable, VNode } from 'msfssdk';
+import { FSComponent, DisplayComponent, ComponentProps, Subject, Subscribable, VNode, EventBus } from 'msfssdk';
 import { Arinc429Word } from '@shared/arinc429';
-import { EfisNdRangeValue } from '@shared/NavigationDisplay';
-import { TcasMode } from '@tcas/lib/TcasConstants';
+import { rangeSettings } from '@shared/NavigationDisplay';
 import { MathUtils } from '@shared/MathUtils';
+import { TcasSimVars } from 'instruments/src/MsfsAvionicsCommon/providers/TcasBusPublisher';
+import { EcpSimVars } from 'instruments/src/MsfsAvionicsCommon/providers/EcpBusSimVarPublisher';
 
 export interface RoseModeOverlayProps {
+    bus: EventBus,
     heading: Subscribable<Arinc429Word>,
-    rangeValue: Subscribable<EfisNdRangeValue>,
-    tcasMode: Subscribable<TcasMode>,
     visible: Subscribable<boolean>,
 }
 
 export class RoseModeUnderlay extends DisplayComponent<RoseModeOverlayProps> {
     private readonly headingValid = this.props.heading.map((it) => it.isNormalOperation());
+
+    private readonly rangeValue = Subject.create<number>(10);
+
+    private readonly tcasMode = Subject.create<number>(0);
+
+    private readonly middleRingNoTcasShown = FSComponent.createRef<SVGGElement>();
+
+    private readonly middleRingTcasShown = FSComponent.createRef<SVGGElement>();
+
+    private readonly smallRingNoTcasShown = FSComponent.createRef<SVGGElement>();
 
     private readonly ringColor = this.headingValid.map((valid) => {
         if (valid) {
@@ -30,20 +40,29 @@ export class RoseModeUnderlay extends DisplayComponent<RoseModeOverlayProps> {
         return 'rotate(0 384 384)';
     });
 
-    // eslint-disable-next-line
-    private readonly middleRingNoTcasShown = MappedSubject.create(([tcasMode, rangeValue, headingValid]) => {
-        return !headingValid || tcasMode === TcasMode.STBY && rangeValue > 10;
-    }, this.props.tcasMode, this.props.rangeValue, this.headingValid);
+    onAfterRender(node: VNode) {
+        super.onAfterRender(node);
 
-    // eslint-disable-next-line
-    private readonly middleRingTcasShown = MappedSubject.create(([tcasMode, rangeValue, headingValid]) => {
-        return headingValid && (tcasMode !== TcasMode.STBY || rangeValue <= 10);
-    }, this.props.tcasMode, this.props.rangeValue, this.headingValid);
+        const sub = this.props.bus.getSubscriber<EcpSimVars & TcasSimVars>();
 
-    // eslint-disable-next-line
-    private readonly smallRingNoTcasShown = MappedSubject.create(([tcasMode, rangeValue]) => {
-        return tcasMode > TcasMode.STBY && rangeValue === 20;
-    }, this.props.tcasMode, this.props.rangeValue);
+        sub.on('ndRangeSetting').whenChanged().handle((value) => {
+            this.rangeValue.set(rangeSettings[value]);
+
+            this.handleRingVisibilities();
+        });
+
+        sub.on('tcasMode').whenChanged().handle((value) => {
+            this.tcasMode.set(value);
+
+            this.handleRingVisibilities();
+        });
+    }
+
+    private handleRingVisibilities() {
+        this.middleRingNoTcasShown.instance.style.visibility = !this.headingValid || this.tcasMode.get() === 0 || this.rangeValue.get() > 10 ? '' : 'hidden';
+        this.middleRingTcasShown.instance.style.visibility = this.headingValid && this.tcasMode.get() > 0 && this.rangeValue.get() <= 10 ? '' : 'hidden';
+        this.smallRingNoTcasShown.instance.style.visibility = this.tcasMode.get() > 0 && this.rangeValue.get() === 20 ? '' : 'hidden';
+    }
 
     render(): VNode | null {
         return (
@@ -59,15 +78,16 @@ export class RoseModeUnderlay extends DisplayComponent<RoseModeOverlayProps> {
                     </g>
 
                     {/* R = 125, middle range ring */}
-                    <path
-                        visibility={this.middleRingNoTcasShown.map((v) => (v ? 'inherit' : 'hidden'))}
-                        d="M 509 384 A 125 125 0 0 1 259 384 M 259 384 A 125 125 180 0 1 509 384"
-                        strokeDasharray="15 10"
-                        strokeDashoffset="-4.2"
-                    />
+                    <g ref={this.middleRingNoTcasShown}>
+                        <path
+                            d="M 509 384 A 125 125 0 0 1 259 384 M 259 384 A 125 125 180 0 1 509 384"
+                            strokeDasharray="15 10"
+                            strokeDashoffset="-4.2"
+                        />
+                    </g>
 
                     {/* middle range ring replaced with tcas range ticks */}
-                    <g visibility={this.middleRingTcasShown.map((v) => (v ? 'inherit' : 'hidden'))}>
+                    <g ref={this.middleRingTcasShown}>
                         <line x1={384} x2={384} y1={264} y2={254} class="rounded White" transform="rotate(0 384 384)" />
                         <line x1={384} x2={384} y1={264} y2={254} class="rounded White" transform="rotate(30 384 384)" />
                         <line x1={384} x2={384} y1={264} y2={254} class="rounded White" transform="rotate(60 384 384)" />
@@ -83,7 +103,7 @@ export class RoseModeUnderlay extends DisplayComponent<RoseModeOverlayProps> {
                     </g>
 
                     {/* R = 62, tcas range ticks */}
-                    <g visibility={this.smallRingNoTcasShown.map((v) => (v ? 'inherit' : 'hidden'))}>
+                    <g ref={this.smallRingNoTcasShown}>
                         <line x1={384} x2={384} y1={327} y2={317} class="rounded White" transform="rotate(0 384 384)" />
                         <line x1={384} x2={384} y1={327} y2={317} class="rounded White" transform="rotate(30 384 384)" />
                         <line x1={384} x2={384} y1={327} y2={317} class="rounded White" transform="rotate(60 384 384)" />
@@ -99,10 +119,10 @@ export class RoseModeUnderlay extends DisplayComponent<RoseModeOverlayProps> {
                     </g>
 
                     <text x={212} y={556} class="Cyan" fontSize={22}>
-                        {this.props.rangeValue.map((range) => range / 2)}
+                        { this.rangeValue.get() / 2}
                     </text>
                     <text x={310} y={474} class="Cyan" fontSize={22}>
-                        {this.props.rangeValue.map((range) => range / 4)}
+                        { this.rangeValue.get() / 4 }
                     </text>
 
                     {/* fixed triangle markers every 45 deg except 12 o'clock */}

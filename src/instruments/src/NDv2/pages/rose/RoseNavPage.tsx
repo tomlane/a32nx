@@ -11,9 +11,8 @@ export class RoseNavPage extends RoseMode {
         return (
             <g visibility={this.isVisible.map((v) => (v ? 'visible' : 'hidden'))}>
                 <RoseModeUnderlay
+                    bus={this.props.bus}
                     heading={this.props.heading}
-                    tcasMode={this.props.tcasMode}
-                    rangeValue={this.props.rangeValue}
                     visible={this.isVisible}
                 />
 
