@@ -1,5 +1,4 @@
-import { FSComponent, DisplayComponent, EventBus, Subscribable, VNode } from 'msfssdk';
-import React from 'react';
+import { FSComponent, DisplayComponent, Subscribable, VNode } from 'msfssdk';
 
 export interface PlanModeUnderlayProps {
     mapRange: Subscribable<number>,
@@ -17,8 +16,8 @@ export class PlanModeUnderlay extends DisplayComponent<PlanModeUnderlayProps> {
 
                     <path d="M259,384a125,125 0 1,0 250,0a125,125 0 1,0 -250,0" strokeDasharray="14 13" class="White" />
 
-                    <text x={310} y={474} class="Cyan" fontSize={22}>{this.props.mapRange.map((range) => range / 4)}</text>
-                    <text x={212} y={556} class="Cyan" fontSize={22}>{this.props.mapRange.map((range) => range / 2)}</text>
+                    <text x={310} y={474} class="Cyan" fontSize={22}>{this.props.mapRange.map((range) => range / 2)}</text>
+                    <text x={212} y={556} class="Cyan" fontSize={22}>{this.props.mapRange.map((range) => range / 1)}</text>
 
                     <text x={384} y={170} class="White" fontSize={25} textAnchor="middle" alignmentBaseline="central">N</text>
                     <path d="M384,141.5 L390,151 L378,151 L384,141.5" fill="white" stroke="none" />

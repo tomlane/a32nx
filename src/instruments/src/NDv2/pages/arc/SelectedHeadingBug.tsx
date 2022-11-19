@@ -1,7 +1,7 @@
 import { FSComponent, DisplayComponent, EventBus, MappedSubject, Subject, Subscribable, VNode } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
 import { NDSimvars } from '../../NDSimvarPublisher';
 import { getSmallestAngle } from '../../../PFD/PFDUtils';
+import { Arinc429RegisterSubject } from '../../../MsfsAvionicsCommon/Arinc429RegisterSubject';
 
 export interface SelectedHeadingBugProps {
     bus: EventBus,
@@ -11,13 +11,13 @@ export interface SelectedHeadingBugProps {
 export class SelectedHeadingBug extends DisplayComponent<SelectedHeadingBugProps> {
     private readonly diffSubject = Subject.create(0);
 
-    private readonly headingWord = Subject.create<Arinc429Word>(Arinc429Word.empty());
+    private readonly headingWord = Arinc429RegisterSubject.createEmpty();
 
     private readonly selected = Subject.create(0);
 
     // eslint-disable-next-line
     private readonly bugShown = MappedSubject.create(([headingWord, selected, diff]) => {
-        if (headingWord.isNormalOperation()) {
+        if (!headingWord.isNormalOperation()) {
             return false;
         }
 
@@ -52,8 +52,7 @@ export class SelectedHeadingBug extends DisplayComponent<SelectedHeadingBugProps
         });
 
         sub.on('heading').whenChanged().handle((v) => {
-            const decoded = new Arinc429Word(v);
-            this.headingWord.set(decoded);
+            this.headingWord.setWord(v);
             this.handleDisplay();
         });
     }

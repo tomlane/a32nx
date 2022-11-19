@@ -1,11 +1,14 @@
 import { FSComponent, DisplayComponent, ComponentProps, MappedSubject, Subject, Subscribable, VNode } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
+import { Arinc429WordData } from '@shared/arinc429';
 import { RoseMode, RoseModeProps } from './RoseMode';
 import { TrackBug } from '../../shared/TrackBug';
 import { RoseModeUnderlay } from './RoseModeUnderlay';
 import { VorSimVars } from '../../../MsfsAvionicsCommon/providers/VorBusPublisher';
 import { AdirsSimVars } from '../../../MsfsAvionicsCommon/SimVarTypes';
 import { Flag } from '../../shared/Flag';
+import { Arinc429RegisterSubject } from '../../../MsfsAvionicsCommon/Arinc429RegisterSubject';
+import { NDControlEvents } from '../../NDControlEvents';
+import { VorInfoIndicator } from './VorInfoIndicator';
 
 export interface RoseVorProps extends RoseModeProps {
     index: 1 | 2,
@@ -14,13 +17,21 @@ export interface RoseVorProps extends RoseModeProps {
 export class RoseVorPage extends RoseMode<RoseVorProps> {
     isVisible = Subject.create(false);
 
-    private readonly headingWord = Subject.create(Arinc429Word.empty());
+    private readonly headingWord = Arinc429RegisterSubject.createEmpty();
 
     private readonly courseSub = Subject.create(0);
 
     private readonly courseDeviationSub = Subject.create(0);
 
     private readonly vorAvailableSub = Subject.create(false);
+
+    onShow() {
+        super.onShow();
+
+        const publisher = this.props.bus.getPublisher<NDControlEvents>();
+
+        publisher.pub('set_show_map', false);
+    }
 
     onAfterRender(node: VNode) {
         super.onAfterRender(node);
@@ -29,7 +40,7 @@ export class RoseVorPage extends RoseMode<RoseVorProps> {
 
         const index = this.props.index;
 
-        sub.on('heading').whenChanged().handle((v) => this.headingWord.set(new Arinc429Word(v)));
+        sub.on('heading').whenChanged().handle((v) => this.headingWord.setWord(v));
 
         sub.on(`nav${index}Obs`).whenChanged().handle((v) => this.courseSub.set(v));
 
@@ -43,6 +54,8 @@ export class RoseVorPage extends RoseMode<RoseVorProps> {
     render(): VNode | null {
         return (
             <g visibility={this.isVisible.map((v) => (v ? 'visible' : 'hidden'))}>
+                <VorInfoIndicator bus={this.props.bus} index={this.props.index} />
+
                 <RoseModeUnderlay
                     bus={this.props.bus}
                     heading={this.props.heading}
@@ -70,7 +83,7 @@ export class RoseVorPage extends RoseMode<RoseVorProps> {
 
 interface VorCaptureOverlayProps extends ComponentProps {
     index: 1 | 2,
-    heading: Subscribable<Arinc429Word>,
+    heading: Subscribable<Arinc429WordData>,
     course: Subscribable<number>,
     courseDeviation: Subscribable<number>,
     vorAvailable: Subscribable<boolean>,

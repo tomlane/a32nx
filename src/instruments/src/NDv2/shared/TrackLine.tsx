@@ -1,19 +1,9 @@
-import {
-    FSComponent,
-    DisplayComponent,
-    EventBus,
-    Subject,
-    VNode,
-    MappedSubject,
-    Subscribable,
-    ConsumerSubject,
-} from 'msfssdk';
-import React from 'react';
-import { Arinc429Word } from '@shared/arinc429';
+import { FSComponent, DisplayComponent, EventBus, VNode, MappedSubject, Subscribable, ConsumerSubject } from 'msfssdk';
 import { MathUtils } from '@shared/MathUtils';
 import { ArmedLateralMode, isArmed, LateralMode } from '@shared/autopilot';
 import { NDSimvars } from '../NDSimvarPublisher';
 import { FGVars } from '../../MsfsAvionicsCommon/providers/FGDataPublisher';
+import { Arinc429RegisterSubject } from '../../MsfsAvionicsCommon/Arinc429RegisterSubject';
 
 export interface TrackLineProps {
     bus: EventBus,
@@ -25,9 +15,9 @@ export interface TrackLineProps {
 export class TrackLine extends DisplayComponent<TrackLineProps> {
     private readonly lineRef = FSComponent.createRef<SVGLineElement>();
 
-    private headingWord = Subject.create<Arinc429Word>(Arinc429Word.empty());
+    private headingWord = Arinc429RegisterSubject.createEmpty();
 
-    private trackWord = Subject.create<Arinc429Word>(Arinc429Word.empty());
+    private trackWord =Arinc429RegisterSubject.createEmpty();
 
     private readonly sub = this.props.bus.getSubscriber<FGVars & NDSimvars>();
 
@@ -53,7 +43,7 @@ export class TrackLine extends DisplayComponent<TrackLineProps> {
         this.sub.on('heading').whenChanged().handle((v) => {
             const oldSsm = this.headingWord.get().ssm;
 
-            this.headingWord.set(new Arinc429Word(v));
+            this.headingWord.setWord(v);
 
             // FIXME make this not sus
             if (this.headingWord.get().ssm !== oldSsm) {
@@ -64,7 +54,7 @@ export class TrackLine extends DisplayComponent<TrackLineProps> {
         this.sub.on('groundTrack').whenChanged().handle((v) => {
             const oldSsm = this.trackWord.get().ssm;
 
-            this.trackWord.set(new Arinc429Word(v));
+            this.trackWord.setWord(v);
 
             // FIXME make this not sus
             if (this.trackWord.get().ssm !== oldSsm) {

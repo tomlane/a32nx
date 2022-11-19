@@ -19,6 +19,7 @@ export interface AdirsSimVars {
     groundTrack: number;
     trueGroundTrack: number;
     groundSpeed: number;
+    trueAirSpeed: number;
     windDirection: number;
     windVelocity: number;
     fpaRaw: number;
@@ -40,6 +41,7 @@ export enum AdirsVars {
     groundTrack = 'L:A32NX_ADIRS_IR_1_TRACK',
     trueGroundTrack = 'L:A32NX_ADIRS_IR_1_TRUE_TRACK',
     groundSpeed = 'L:A32NX_ADIRS_IR_1_GROUND_SPEED',
+    trueAirSpeed = 'L:A32NX_ADIRS_ADR_1_TRUE_AIRSPEED',
     windDirection = 'L:A32NX_ADIRS_IR_1_WIND_DIRECTION',
     windVelocity = 'L:A32NX_ADIRS_IR_1_WIND_VELOCITY',
     fpaRaw = 'L:A32NX_ADIRS_IR_1_FLIGHT_PATH_ANGLE',
@@ -59,6 +61,7 @@ export const AdirsSimVarDefinitions = new Map<keyof AdirsSimVars, SimVarDefiniti
     ['groundTrack', { name: AdirsVars.groundTrack, type: SimVarValueType.Number }],
     ['trueGroundTrack', { name: AdirsVars.trueGroundTrack, type: SimVarValueType.Number }],
     ['groundSpeed', { name: AdirsVars.groundSpeed, type: SimVarValueType.Number }],
+    ['trueAirSpeed', { name: AdirsVars.trueAirSpeed, type: SimVarValueType.Number }],
     ['windDirection', { name: AdirsVars.windDirection, type: SimVarValueType.Number }],
     ['windVelocity', { name: AdirsVars.windVelocity, type: SimVarValueType.Number }],
     ['fpaRaw', { name: AdirsVars.fpaRaw, type: SimVarValueType.Number }],

@@ -1,6 +1,6 @@
 import { FSComponent, ComponentProps, Subscribable, VNode, Subject, EventBus, ConsumerSubject } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
-import { rangeSettings } from '@shared/NavigationDisplay';
+import { Arinc429Register, Arinc429Word, Arinc429WordData } from '@shared/arinc429';
+import { EfisNdMode, rangeSettings } from '@shared/NavigationDisplay';
 import { PlanModeUnderlay } from './PlanModeUnderlay';
 import { MapParameters } from '../../../ND/utils/MapParameters';
 import { NDPage } from '../NDPage';
@@ -11,7 +11,7 @@ import { AdirsSimVars } from '../../../MsfsAvionicsCommon/SimVarTypes';
 
 export interface PlanModePageProps extends ComponentProps {
     bus: EventBus,
-    aircraftTrueHeading: Subscribable<Arinc429Word>,
+    aircraftTrueHeading: Subscribable<Arinc429WordData>,
 }
 
 export class PlanModePage extends NDPage<PlanModePageProps> {
@@ -23,7 +23,11 @@ export class PlanModePage extends NDPage<PlanModePageProps> {
 
     private readonly pposLatSub = ConsumerSubject.create(this.subs.on('latitude').whenChanged(), -1);
 
+    private readonly pposLatRegister = Arinc429Register.empty();
+
     private readonly pposLongSub = ConsumerSubject.create(this.subs.on('longitude').whenChanged(), -1);
+
+    private readonly pposLongRegister = Arinc429Register.empty();
 
     private readonly mapCenterLatSub = ConsumerSubject.create(this.subs.on('set_map_center_lat').whenChanged(), -1);
 
@@ -86,12 +90,15 @@ export class PlanModePage extends NDPage<PlanModePageProps> {
 
     private handleMovePlane() {
         if (this.isVisible.get()) {
-            const latWord = new Arinc429Word(this.pposLatSub.get());
-            const longWord = new Arinc429Word(this.pposLongSub.get());
+            const latRegister = this.pposLatRegister;
+            const longRegister = this.pposLongRegister;
 
-            if (latWord.isNormalOperation() && longWord.isNormalOperation()) {
-                const lat = latWord.value;
-                const long = longWord.value;
+            latRegister.set(this.pposLatSub.get());
+            longRegister.set(this.pposLongSub.get());
+
+            if (latRegister.isNormalOperation() && longRegister.isNormalOperation()) {
+                const lat = latRegister.value;
+                const long = longRegister.value;
 
                 const [x, y] = this.mapParams.coordinatesToXYy({ lat, long });
 
@@ -121,7 +128,10 @@ export class PlanModePage extends NDPage<PlanModePageProps> {
             const rangeSetting = this.mapRangeSub.get();
             const range = rangeSettings[rangeSetting];
 
-            this.controlPublisher.pub('set_map_range_radius', range);
+            this.controlPublisher.pub('set_map_efis_mode', EfisNdMode.PLAN);
+            this.controlPublisher.pub('set_map_pixel_radius', 250);
+            this.controlPublisher.pub('set_map_range_radius', range / 2);
+            this.controlPublisher.pub('set_map_center_y_bias', 0);
         }
     }
 
@@ -139,8 +149,9 @@ export class PlanModePage extends NDPage<PlanModePageProps> {
     private handleRecomputeMapParameters() {
         this.mapParams.compute(
             { lat: this.mapCenterLatSub.get(), long: this.mapCenterLonSub.get() },
-            this.mapRangeRadiusSub.get() * 2,
-            1240,
+            0,
+            this.mapRangeRadiusSub.get(),
+            250,
             0, // FIXME true north ?
         );
     }

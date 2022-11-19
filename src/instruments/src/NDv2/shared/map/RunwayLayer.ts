@@ -30,11 +30,11 @@ export class RunwayLayer implements MapLayer<NdSymbol> {
             const ry = y + mapHeight / 2;
 
             if (symbol.type & NdSymbolTypeFlags.Runway) {
-                if ((mapParameters.nmRadius / 2) < 80) {
+                if (mapParameters.nmRadius < 80) {
                     this.paintScaledRunway(true, context, rx, ry, symbol, mapParameters);
+                } else {
+                    this.paintUnscaledRunway(true, context, rx, ry, symbol, mapParameters);
                 }
-
-                // TODO paint unscaled runway
             }
         }
     }
@@ -60,6 +60,26 @@ export class RunwayLayer implements MapLayer<NdSymbol> {
         context.lineTo(x + 5, y - length);
         context.stroke();
         context.closePath();
+
+        this.paintRunwayIdentifier(isColorLayer, context, x, y, rotation, symbol);
+
+        context.restore();
+    }
+
+    private paintUnscaledRunway(isColorLayer: boolean, context: CanvasRenderingContext2D, x: number, y: number, symbol: NdSymbol, mapParameters: MapParameters) {
+        // Runway shape
+        const rotation = mapParameters.rotation(symbol.direction);
+
+        context.save();
+
+        context.translate(x, y);
+        context.rotate(rotation * MathUtils.DEGREES_TO_RADIANS);
+        context.translate(-x, -y);
+
+        context.lineWidth = isColorLayer ? 1.75 : 3.25;
+        context.strokeStyle = isColorLayer ? '#fff' : '#000';
+
+        context.strokeRect(x - 5, y - 12.5, 10, 25);
 
         this.paintRunwayIdentifier(isColorLayer, context, x, y, rotation, symbol);
 

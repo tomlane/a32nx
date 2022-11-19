@@ -45,9 +45,19 @@ export interface NDControlEvents {
     set_map_center_lon: number,
 
     /**
+     * Set the center Y-axis bias of the map
+     */
+    set_map_center_y_bias: number,
+
+    /**
      * Set the true course up of the map
      */
     set_map_up_course: number,
+
+    /**
+     * Set the pixel radius of the map
+     */
+    set_map_pixel_radius: number,
 
     /**
      * Set the range radius of the map
@@ -58,4 +68,9 @@ export interface NDControlEvents {
      * Set the EFIS ND mode of the map
      */
     set_map_efis_mode: EfisNdMode,
+
+    /**
+     * Event for the CHRONO button being pushed
+     */
+    chrono_pushed: void,
 }

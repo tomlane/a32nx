@@ -1,14 +1,14 @@
 import { FSComponent, DisplayComponent, VNode, Subject, EventBus } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
 import { Layer } from '../../MsfsAvionicsCommon/Layer';
 import { AdirsSimVars } from '../../MsfsAvionicsCommon/SimVarTypes';
 import { NDControlEvents } from '../NDControlEvents';
+import { Arinc429RegisterSubject } from '../../MsfsAvionicsCommon/Arinc429RegisterSubject';
 
 const PLANE_X_OFFSET = -41;
 const PLANE_Y_OFFSET = 0;
 
 export class Airplane extends DisplayComponent<{ bus: EventBus }> {
-    private readonly headingWord = Subject.create(Arinc429Word.empty());
+    private readonly headingWord = Arinc429RegisterSubject.createEmpty();
 
     private readonly showPlane = Subject.create(false);
 
@@ -23,7 +23,7 @@ export class Airplane extends DisplayComponent<{ bus: EventBus }> {
 
         const sub = this.props.bus.getSubscriber<AdirsSimVars & NDControlEvents>();
 
-        sub.on('heading').whenChanged().handle((v) => this.headingWord.set(new Arinc429Word(v)));
+        sub.on('heading').whenChanged().handle((v) => this.headingWord.setWord(v));
 
         sub.on('set_show_plane').handle((show) => {
             this.showPlane.set(show);

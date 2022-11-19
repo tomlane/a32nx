@@ -1,5 +1,5 @@
 import { FSComponent, DisplayComponent, ComponentProps, Subject, Subscribable, VNode, EventBus } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
+import { Arinc429WordData } from '@shared/arinc429';
 import { rangeSettings } from '@shared/NavigationDisplay';
 import { MathUtils } from '@shared/MathUtils';
 import { TcasSimVars } from 'instruments/src/MsfsAvionicsCommon/providers/TcasBusPublisher';
@@ -7,7 +7,7 @@ import { EcpSimVars } from 'instruments/src/MsfsAvionicsCommon/providers/EcpBusS
 
 export interface RoseModeOverlayProps {
     bus: EventBus,
-    heading: Subscribable<Arinc429Word>,
+    heading: Subscribable<Arinc429WordData>,
     visible: Subscribable<boolean>,
 }
 

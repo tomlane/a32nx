@@ -15,6 +15,10 @@ import { RunwayLayer } from './RunwayLayer';
 import { TrafficLayer } from './TrafficLayer';
 import { FixInfoLayer } from './FixInfoLayer';
 import { NDControlEvents } from '../../NDControlEvents';
+import { TerrainMap } from './TerrainMap';
+import { TerrainImageRenderer } from './TerrainImageRenderer';
+
+const ARC_CLIP = new Path2D('M0,312 a492,492 0 0 1 768,0 L768,562 L648,562 L591,625 L591,768 L174,768 L174,683 L122,625 L0,625 L0,312');
 
 const DASHES = [15, 12];
 const NO_DASHES = [];
@@ -23,8 +27,6 @@ export interface CanvasMapProps {
     bus: EventBus,
     x: Subscribable<number>,
     y: Subscribable<number>,
-    width: number,
-    height: number,
 }
 
 export class CanvasMap extends DisplayComponent<CanvasMapProps> {
@@ -36,7 +38,11 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
 
     private readonly mapCenterLong = Subject.create<number>(-1);
 
+    private readonly mapCenterYBias = Subject.create<number>(-1);
+
     private readonly mapRotation = Subject.create<number>(-1);
+
+    private readonly mapPixelRadius = Subject.create<number>(-1);
 
     private readonly mapRangeRadius = Subject.create<number>(-1);
 
@@ -68,15 +74,23 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
 
     public pointerY = 0;
 
+    // private readonly terrainMap = new TerrainMap(this.props.bus, 'L', 768, 768);
+
+    private readonly constraintsLayer = new ConstraintsLayer();
+
     private readonly waypointLayer = new WaypointLayer(this);
 
     private readonly fixInfoLayer = new FixInfoLayer();
 
-    private readonly constraintsLayer = new ConstraintsLayer();
-
     private readonly runwayLayer = new RunwayLayer();
 
     private readonly trafficLayer = new TrafficLayer(this);
+
+    private lastFrameTimestamp: number = 0;
+
+    private terrainImage = new Image();
+
+    private lastTerrainVisualisationVersion = 0;
 
     onAfterRender(node: VNode) {
         super.onAfterRender(node);
@@ -87,7 +101,9 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
         sub.on('set_map_recomputing').handle((show) => this.mapRecomputing.set(show));
         sub.on('set_map_center_lat').handle((v) => this.mapCenterLat.set(v));
         sub.on('set_map_center_lon').handle((v) => this.mapCenterLong.set(v));
+        sub.on('set_map_center_y_bias').handle((v) => this.mapCenterYBias.set(v));
         sub.on('set_map_up_course').handle((v) => this.mapRotation.set(v));
+        sub.on('set_map_pixel_radius').handle((v) => this.mapPixelRadius.set(v));
         sub.on('set_map_range_radius').handle((v) => this.mapRangeRadius.set(v));
         // sub.on('set_map_efis_mode').handle((v) => this.mapMode.set(v));
 
@@ -108,7 +124,15 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
             this.handleRecomputeMapParameters();
         });
 
+        this.mapCenterYBias.sub(() => {
+            this.handleRecomputeMapParameters();
+        });
+
         this.mapRotation.sub(() => {
+            this.handleRecomputeMapParameters();
+        });
+
+        this.mapPixelRadius.sub(() => {
             this.handleRecomputeMapParameters();
         });
 
@@ -140,8 +164,10 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
             this.vectors[EfisVectorsGroup.TEMPORARY].push(...data);
         });
 
-        sub.on('realTime').whenChangedBy(8).handle(() => {
-            this.handleFrame();
+        sub.on('realTime').whenChangedBy(8).handle((value) => {
+            this.handleFrame(value - this.lastFrameTimestamp);
+
+            this.lastFrameTimestamp = value;
         });
     }
 
@@ -157,8 +183,9 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
     private handleRecomputeMapParameters() {
         this.mapParams.compute(
             { lat: this.mapCenterLat.get(), long: this.mapCenterLong.get() },
-            this.mapRangeRadius.get() * 2,
-            this.props.width,
+            this.mapCenterYBias.get(),
+            this.mapRangeRadius.get(),
+            this.mapPixelRadius.get(),
             this.mapRotation.get(),
         );
     }
@@ -234,18 +261,19 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
         this.trafficLayer.data = this.traffic; // Populate with new traffic
     }
 
-    private handleFrame() {
+    private handleFrame(deltaTime: number) {
         // console.log(`center: lat=${this.props.mapCenterLat.get()}, long=${this.props.mapCenterLong.get()}`);
 
         const canvas = this.canvasRef.instance;
         const context = canvas.getContext('2d');
 
-        context.clearRect(0, 0, this.props.width, this.props.height);
+        const size = 768;
 
-        context.translate(236, -6);
+        context.clearRect(0, 0, size, size);
+
         switch (this.mapMode.get()) {
         case EfisNdMode.ARC:
-            context.clip(new Path2D('M0,312 a492,492 0 0 1 768,0 L768,562 L648,562 L591,625 L591,768 L174,768 L174,683 L122,625 L0,625 L0,312'));
+            context.clip(ARC_CLIP);
             break;
         case EfisNdMode.ROSE_NAV:
         case EfisNdMode.ROSE_ILS:
@@ -261,8 +289,8 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
         }
         context.resetTransform();
 
-        this.constraintsLayer.paintShadowLayer(context, this.props.width, this.props.height, this.mapParams);
-        this.constraintsLayer.paintColorLayer(context, this.props.width, this.props.height, this.mapParams);
+        this.constraintsLayer.paintShadowLayer(context, size, size, this.mapParams);
+        this.constraintsLayer.paintColorLayer(context, size, size, this.mapParams);
 
         for (const key in this.vectors) {
             if (this.vectors[key].length > 0) {
@@ -274,17 +302,17 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
             }
         }
 
-        this.waypointLayer.paintShadowLayer(context, this.props.width, this.props.height, this.mapParams);
-        this.waypointLayer.paintColorLayer(context, this.props.width, this.props.height, this.mapParams);
+        this.waypointLayer.paintShadowLayer(context, size, size, this.mapParams);
+        this.waypointLayer.paintColorLayer(context, size, size, this.mapParams);
 
-        this.fixInfoLayer.paintShadowLayer(context, this.props.width, this.props.height, this.mapParams);
-        this.fixInfoLayer.paintColorLayer(context, this.props.width, this.props.height, this.mapParams);
+        this.fixInfoLayer.paintShadowLayer(context, size, size, this.mapParams);
+        this.fixInfoLayer.paintColorLayer(context, size, size, this.mapParams);
 
-        this.runwayLayer.paintShadowLayer(context, this.props.width, this.props.height, this.mapParams);
-        this.runwayLayer.paintColorLayer(context, this.props.width, this.props.height, this.mapParams);
+        this.runwayLayer.paintShadowLayer(context, size, size, this.mapParams);
+        this.runwayLayer.paintColorLayer(context, size, size, this.mapParams);
 
-        this.trafficLayer.paintShadowLayer(context, this.props.width, this.props.height);
-        this.trafficLayer.paintColorLayer(context, this.props.width, this.props.height);
+        this.trafficLayer.paintShadowLayer(context, size, size);
+        this.trafficLayer.paintColorLayer(context, size, size);
     }
 
     private drawVector(context: CanvasRenderingContext2D, vector: PathVector, group: EfisVectorsGroup) {
@@ -305,15 +333,17 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
 
         context.lineWidth = 1.75;
 
+        const size = 768;
+
         switch (vector.type) {
         case 0: {
             const [sx, sy] = this.mapParams.coordinatesToXYy(vector.startPoint);
-            const rsx = sx + this.props.width / 2;
-            const rsy = sy + this.props.height / 2;
+            const rsx = sx + size / 2;
+            const rsy = sy + size / 2;
 
             const [ex, ey] = this.mapParams.coordinatesToXYy(vector.endPoint);
-            const rex = ex + this.props.width / 2;
-            const rey = ey + this.props.height / 2;
+            const rex = ex + size / 2;
+            const rey = ey + size / 2;
 
             context.moveTo(rsx, rsy);
             context.lineTo(rex, rey);
@@ -321,12 +351,12 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
         }
         case 1: {
             const [sx, sy] = this.mapParams.coordinatesToXYy(vector.startPoint);
-            const rsx = sx + this.props.width / 2;
-            const rsy = sy + this.props.height / 2;
+            const rsx = sx + size / 2;
+            const rsy = sy + size / 2;
 
             const [ex, ey] = this.mapParams.coordinatesToXYy(vector.endPoint);
-            const rex = ex + this.props.width / 2;
-            const rey = ey + this.props.height / 2;
+            const rex = ex + size / 2;
+            const rey = ey + size / 2;
 
             const pathRadius = distanceTo(vector.centrePoint, vector.endPoint) * this.mapParams.nmToPx;
 
@@ -346,13 +376,14 @@ export class CanvasMap extends DisplayComponent<CanvasMapProps> {
             <>
                 <canvas
                     ref={this.canvasRef}
-                    width={this.props.width}
-                    height={this.props.height}
-                    style={MappedSubject.create(([x, y]) => `width: ${this.props.width}px; height: ${this.props.height}px; position: absolute; top: 0; left: 0; transform: translate(${-(this.props.width / 2) + x}px, ${-(this.props.height / 2) + y}px)`, this.props.x, this.props.y)}
+                    width={768}
+                    height={768}
+                    class="nd-canvas-map"
+                    style={MappedSubject.create(([r, x, y]) => `width: ${r}px; height: ${r}px; position: absolute; top: 0; left: 0; transform: translate(${-(r / 2) + x}px, ${-(r / 2) + y}px)`, Subject.create(768), this.props.x, this.props.y)}
                 />
                 <div
                     ref={this.touchContainerRef}
-                    style={MappedSubject.create(([x, y]) => `width: ${this.props.width}px; height: ${this.props.height}px; position: absolute; top: 0; left: 0; transform: translate(${-(this.props.width / 2) + x}px, ${-(this.props.height / 2) + y}px)`, this.props.x, this.props.y)}
+                    style={MappedSubject.create(([r, x, y]) => `width: ${r}px; height: ${r}px; position: absolute; top: 0; left: 0; transform: translate(${-(r / 2) + x}px, ${-(r / 2) + y}px)`, Subject.create(768), this.props.x, this.props.y)}
                 />
             </>
         );

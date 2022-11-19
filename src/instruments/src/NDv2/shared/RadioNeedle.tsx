@@ -1,6 +1,6 @@
 import { FSComponent, DisplayComponent, EventBus, Subject, Subscribable, VNode, MappedSubject } from 'msfssdk';
 import { EfisNdMode, EfisSide, NavAidMode } from '@shared/NavigationDisplay';
-import { Arinc429Word } from '@shared/arinc429';
+import { Arinc429WordData } from '@shared/arinc429';
 import { getSmallestAngle } from 'instruments/src/PFD/PFDUtils';
 import { EcpSimVars } from '../../MsfsAvionicsCommon/providers/EcpBusSimVarPublisher';
 import { VorSimVars } from '../../MsfsAvionicsCommon/providers/VorBusPublisher';
@@ -8,8 +8,8 @@ import { AdirsSimVars } from '../../MsfsAvionicsCommon/SimVarTypes';
 
 export interface RadioNeedleProps {
     bus: EventBus,
-    headingWord: Subscribable<Arinc429Word>,
-    trackWord: Subscribable<Arinc429Word>,
+    headingWord: Subscribable<Arinc429WordData>,
+    trackWord: Subscribable<Arinc429WordData>,
     isUsingTrackUpMode: Subscribable<boolean>,
     index: 1 | 2,
     side: EfisSide,
@@ -78,8 +78,8 @@ export class RadioNeedle extends DisplayComponent<RadioNeedleProps> {
 
 export interface SingleNeedleProps {
     bus: EventBus,
-    headingWord: Subscribable<Arinc429Word>,
-    trackWord: Subscribable<Arinc429Word>,
+    headingWord: Subscribable<Arinc429WordData>,
+    trackWord: Subscribable<Arinc429WordData>,
     trackCorrection: Subscribable<number>,
     index: 1 | 2,
     mode: EfisNdMode,

@@ -1,11 +1,11 @@
-import { FSComponent, DisplayComponent, VNode, Subject, MappedSubject, EventBus } from 'msfssdk';
+import { FSComponent, DisplayComponent, VNode, Subject, MappedSubject, EventBus, Subscribable } from 'msfssdk';
 import { EfisNdMode, TcasWxrMessage } from '@shared/NavigationDisplay';
 import { Layer } from '../MsfsAvionicsCommon/Layer';
 import { TcasSimVars } from '../MsfsAvionicsCommon/providers/TcasBusPublisher';
 
 export interface TcasWXMessagesProps {
     bus: EventBus,
-    mode: EfisNdMode,
+    mode: Subscribable<EfisNdMode>,
 }
 
 export class TcasWxrMessages extends DisplayComponent<TcasWXMessagesProps> {
@@ -17,16 +17,15 @@ export class TcasWxrMessages extends DisplayComponent<TcasWXMessagesProps> {
 
     private readonly rightMessage = Subject.create<TcasWxrMessage | undefined>(undefined);
 
-    private readonly y = (this.props.mode === EfisNdMode.ROSE_VOR || this.props.mode === EfisNdMode.ROSE_ILS) ? 713 : 680;
+    private readonly y = this.props.mode.map((mode) => ((mode === EfisNdMode.ROSE_VOR || mode === EfisNdMode.ROSE_ILS) ? 713 : 680));
 
-    private readonly backgroundFillShown = this.props.mode === EfisNdMode.ARC || this.props.mode === EfisNdMode.ROSE_NAV;
+    private readonly backgroundFillShown = this.props.mode.map((it) => it === EfisNdMode.ARC || it === EfisNdMode.ROSE_NAV);
 
-    private shown = MappedSubject.create(([left, right]) => {
-        const improperMode = this.props.mode !== EfisNdMode.ARC && this.props.mode !== EfisNdMode.ROSE_NAV
-            && this.props.mode !== EfisNdMode.ROSE_VOR && this.props.mode !== EfisNdMode.ROSE_ILS;
+    private shown = MappedSubject.create(([mode, left, right]) => {
+        const improperMode = mode !== EfisNdMode.ARC && mode !== EfisNdMode.ROSE_NAV && mode !== EfisNdMode.ROSE_VOR && mode !== EfisNdMode.ROSE_ILS;
 
         return !improperMode && (left !== undefined || right !== undefined);
-    }, this.leftMessage, this.rightMessage);
+    }, this.props.mode, this.leftMessage, this.rightMessage);
 
     onAfterRender(node: VNode) {
         super.onAfterRender(node);
@@ -49,9 +48,9 @@ export class TcasWxrMessages extends DisplayComponent<TcasWXMessagesProps> {
 
     render(): VNode | null {
         return (
-            <Layer x={164} y={this.y} visible={this.shown}>
+            <Layer x={Subject.create(164)} y={this.y} visible={this.shown}>
                 <rect
-                    visibility={this.backgroundFillShown ? 'visible' : 'hidden'}
+                    visibility={this.backgroundFillShown.map((shown) => (shown ? 'inherit' : 'hidden'))}
                     x={0}
                     y={0}
                     width={440}

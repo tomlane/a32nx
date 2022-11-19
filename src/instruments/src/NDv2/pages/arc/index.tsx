@@ -1,5 +1,5 @@
-import { FSComponent, ComponentProps, MappedSubject, Subject, Subscribable, VNode, EventBus, ConsumerSubject } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
+import { FSComponent, ComponentProps, ConsumerSubject, EventBus, MappedSubject, Subject, Subscribable, VNode } from 'msfssdk';
+import { Arinc429WordData } from '@shared/arinc429';
 import { EfisNdMode, rangeSettings } from '@shared/NavigationDisplay';
 import { TrackBug } from '../../shared/TrackBug';
 import { ArcModeUnderlay } from './ArcModeUnderlay';
@@ -10,18 +10,18 @@ import { Flag } from '../../shared/Flag';
 import { NDPage } from '../NDPage';
 import { CrossTrackError } from '../../shared/CrossTrackError';
 import { RadioNeedle } from '../../shared/RadioNeedle';
-import { TcasWxrMessages } from '../../TcasWxrMessages';
 import { TrackLine } from '../../shared/TrackLine';
 import { NDControlEvents } from '../../NDControlEvents';
 import { AdirsSimVars } from '../../../MsfsAvionicsCommon/SimVarTypes';
 import { EcpSimVars } from '../../../MsfsAvionicsCommon/providers/EcpBusSimVarPublisher';
+import { Arinc429RegisterSubject } from '../../../MsfsAvionicsCommon/Arinc429RegisterSubject';
 
 export interface ArcModePageProps extends ComponentProps {
     bus: EventBus,
-    headingWord: Subscribable<Arinc429Word>,
-    trueHeadingWord: Subscribable<Arinc429Word>,
-    trackWord: Subscribable<Arinc429Word>,
-    trueTrackWord: Subscribable<Arinc429Word>,
+    headingWord: Subscribable<Arinc429WordData>,
+    trueHeadingWord: Subscribable<Arinc429WordData>,
+    trackWord: Subscribable<Arinc429WordData>,
+    trueTrackWord: Subscribable<Arinc429WordData>,
     isUsingTrackUpMode: Subscribable<boolean>,
 }
 
@@ -30,9 +30,9 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
 
     // TODO these two should be FM pos maybe ?
 
-    private readonly pposLatWord = Subject.create(Arinc429Word.empty());
+    private readonly pposLatWord = Arinc429RegisterSubject.createEmpty();
 
-    private readonly pposLonWord = Subject.create(Arinc429Word.empty());
+    private readonly pposLonWord = Arinc429RegisterSubject.createEmpty();
 
     private readonly mapRangeSub = ConsumerSubject.create(this.props.bus.getSubscriber<EcpSimVars>().on('ndRangeSetting').whenChanged(), -1);
 
@@ -72,11 +72,6 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
         super.onShow();
 
         this.handleMovePlane();
-
-        const sub = this.props.bus.getSubscriber<AdirsSimVars & EcpSimVars>();
-
-        sub.on('latitude').whenChanged().handle((v) => this.pposLatWord.set(new Arinc429Word(v)));
-        sub.on('longitude').whenChanged().handle((v) => this.pposLonWord.set(new Arinc429Word(v)));
     }
 
     onAfterRender(node: VNode) {
@@ -90,6 +85,11 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
                 this.handleScaleMap();
             }
         });
+
+        const sub = this.props.bus.getSubscriber<AdirsSimVars & EcpSimVars>();
+
+        sub.on('latitude').whenChanged().handle((v) => this.pposLatWord.setWord(v));
+        sub.on('longitude').whenChanged().handle((v) => this.pposLonWord.setWord(v));
 
         this.props.headingWord.sub(() => this.handleRingRotation());
         this.props.trueHeadingWord.sub(() => this.handleMapRotation());
@@ -186,7 +186,10 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
 
         const publisher = this.props.bus.getPublisher<NDControlEvents>();
 
+        publisher.pub('set_map_efis_mode', EfisNdMode.ARC);
+        publisher.pub('set_map_pixel_radius', 498);
         publisher.pub('set_map_range_radius', rangeSettings[this.mapRangeSub.get()]);
+        publisher.pub('set_map_center_y_bias', 242);
     }
 
     render(): VNode | null {
@@ -245,8 +248,6 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
                 <Flag shown={this.mapFlagShown} x={384} y={320.6} class="Red FontLarge">MAP NOT AVAIL</Flag>
 
                 <CrossTrackError bus={this.props.bus} x={390} y={646} isPlanMode={Subject.create(false)} />
-
-                <TcasWxrMessages bus={this.props.bus} mode={EfisNdMode.ARC} />
             </g>
         );
     }

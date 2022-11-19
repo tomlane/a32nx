@@ -1,6 +1,5 @@
-import { DisplayComponent, EventBus, FSComponent, MappedSubject, Subject, Subscribable, VNode } from 'msfssdk';
-import { Arinc429Word } from '@shared/arinc429';
-import React from 'react';
+import { FSComponent, DisplayComponent, EventBus, Subject, Subscribable, VNode } from 'msfssdk';
+import { Arinc429Register } from '@shared/arinc429';
 import { NDSimvars } from '../NDSimvarPublisher';
 import { getSmallestAngle } from '../../PFD/PFDUtils';
 
@@ -10,21 +9,13 @@ export interface TrackBugProps {
 }
 
 export class TrackBug extends DisplayComponent<TrackBugProps> {
-    private readonly bugRef = FSComponent.createRef<SVGGElement>();
+    private readonly headingWord = Arinc429Register.empty();
 
-    private readonly headingWord = Subject.create<Arinc429Word>(Arinc429Word.empty());
-
-    private readonly trackWord = Subject.create<Arinc429Word>(Arinc429Word.empty());
+    private readonly trackWord =Arinc429Register.empty();
 
     private readonly diffSubject = Subject.create(0);
 
-    private readonly bugShown = MappedSubject.create(([headingWord, trackWord, diff]) => {
-        if (!headingWord.isNormalOperation() || !trackWord.isNormalOperation()) {
-            return false;
-        }
-
-        return diff <= 40;
-    }, this.headingWord, this.trackWord, this.diffSubject);
+    private readonly bugShown = Subject.create(false);
 
     onAfterRender(node: VNode) {
         super.onAfterRender(node);
@@ -32,29 +23,32 @@ export class TrackBug extends DisplayComponent<TrackBugProps> {
         const sub = this.props.bus.getSubscriber<NDSimvars>();
 
         sub.on('heading').whenChanged().handle((v) => {
-            this.headingWord.set(new Arinc429Word(v));
+            this.headingWord.set(v);
             this.handleDisplay();
         });
 
         sub.on('groundTrack').whenChanged().handle((v) => {
-            this.trackWord.set(new Arinc429Word(v));
+            this.trackWord.set(v);
             this.handleDisplay();
         });
     }
 
     private handleDisplay() {
-        const headingValid = this.headingWord.get().isNormalOperation();
-        const trackValid = this.trackWord.get().isNormalOperation();
+        const headingValid = this.headingWord.isNormalOperation();
+        const trackValid = this.trackWord.isNormalOperation();
 
         if (headingValid && trackValid) {
             let diff;
             if (this.props.isUsingTrackUpMode.get()) {
                 diff = 0;
             } else {
-                diff = getSmallestAngle(this.trackWord.get().value, this.headingWord.get().value);
+                diff = getSmallestAngle(this.trackWord.value, this.headingWord.value);
             }
 
+            this.bugShown.set(diff <= 40);
             this.diffSubject.set(diff);
+        } else {
+            this.bugShown.set(false);
         }
     }
 
