@@ -412,10 +412,6 @@ class SpeedIndicator extends DisplayComponent<{ bus: EventBus }> {
 
     private readonly trueAirSpeedRegister = Arinc429RegisterSubject.createEmpty();
 
-    private readonly groundSpeedVisible = Subject.create(false)
-
-    private readonly trueAirSpeedVisible = Subject.create(false);
-
     onAfterRender(node: VNode) {
         super.onAfterRender(node);
 
