@@ -1,6 +1,7 @@
 import { FSComponent, ComponentProps, ConsumerSubject, EventBus, MappedSubject, Subject, Subscribable, VNode } from 'msfssdk';
 import { Arinc429WordData } from '@shared/arinc429';
 import { EfisNdMode, rangeSettings } from '@shared/NavigationDisplay';
+import { LsCourseBug } from 'instruments/src/NDv2/pages/arc/LsCourseBug';
 import { TrackBug } from '../../shared/TrackBug';
 import { ArcModeUnderlay } from './ArcModeUnderlay';
 import { SelectedHeadingBug } from './SelectedHeadingBug';
@@ -223,6 +224,11 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
                 </g>
 
                 <SelectedHeadingBug
+                    bus={this.props.bus}
+                    rotationOffset={this.planeRotation}
+                />
+
+                <LsCourseBug
                     bus={this.props.bus}
                     rotationOffset={this.planeRotation}
                 />
