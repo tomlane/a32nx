@@ -223,12 +223,12 @@ export class ArcModePage extends NDPage<ArcModePageProps> {
                     />
                 </g>
 
-                <SelectedHeadingBug
+                <LsCourseBug
                     bus={this.props.bus}
                     rotationOffset={this.planeRotation}
                 />
 
-                <LsCourseBug
+                <SelectedHeadingBug
                     bus={this.props.bus}
                     rotationOffset={this.planeRotation}
                 />
