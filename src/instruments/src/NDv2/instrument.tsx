@@ -93,7 +93,7 @@ class A32NX_ND extends BaseInstrument {
         this.simVarPublisher.subscribe('groundSpeed');
         this.simVarPublisher.subscribe('trueAirSpeed');
         this.simVarPublisher.subscribe('windDirection');
-        this.simVarPublisher.subscribe('windVelocity');
+        this.simVarPublisher.subscribe('windSpeed');
         this.simVarPublisher.subscribe('speed');
         this.simVarPublisher.subscribe('heading');
         this.simVarPublisher.subscribe('trueHeading');
