@@ -41,6 +41,7 @@
 1. [EWD] Updated EWD to use MSFS Avionics framework - @Eearslya (Eearslya#7831)
 1. [HYD] Realistic randomized yellow accumulator starting state - @Crocket63 (crocket)
 1. [HYD] RAT code refactor to allow for hyd or elec rat design - @Crocket63 (crocket)
+1. [GENERAL] Added C++ WASM framework and migrated all flypad-backend code to it - @frankkopp (Frank Kopp)
 
 ## 0.9.0
 
