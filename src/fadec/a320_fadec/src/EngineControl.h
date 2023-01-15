@@ -657,48 +657,52 @@ class EngineControl {
     }
   }
 
+  int getStationCount(long long paxStationFlags) {
+    int count = 0;
+    int eol = 0;
+    while (paxStationFlags && eol < 64) {
+      count += paxStationFlags & 1;
+      paxStationFlags >>= 1;
+      eol++;
+    }
+    if (eol >= 64) {
+      std::cerr << "ERROR: limit reached" << std::endl;
+    }
+    return count;
+  }
+
   /// <summary>
   /// FBW Payload checking and UI override function
   /// </summary>
+  // TODO: remove from FADEC logic -> rust
   void checkPayload() {
-    double fuelWeightGallon = simVars->getFuelWeightGallon();
-    double aircraftEmptyWeight = simVars->getEmptyWeight();                                   // in LBS
     double conversionFactor = simVars->getConversionFactor();
-    double perPaxWeightLbs = simVars->getPerPaxWeight() / conversionFactor;                   // in LBS
-    double aircraftTotalWeight = simVars->getTotalWeight();                                   // in LBS
-    double fuelTotalWeight = simVars->getFuelTotalQuantity() * fuelWeightGallon;              // in LBS
-    double payloadTotalWeight = aircraftTotalWeight - aircraftEmptyWeight - fuelTotalWeight;  // in LBS
-
-    double paxRows1to6Actual = simVars->getPaxRows1to6Actual() * perPaxWeightLbs;                 // in LBS
-    double paxRows7to13Actual = simVars->getPaxRows7to13Actual() * perPaxWeightLbs;               // in LBS
-    double paxRows14to21Actual = simVars->getPaxRows14to21Actual() * perPaxWeightLbs;             // in LBS
-    double paxRows22to29Actual = simVars->getPaxRows22to29Actual() * perPaxWeightLbs;             // in LBS
-    double paxRows1to6Desired = simVars->getPaxRows1to6Desired() * perPaxWeightLbs;               // in LBS
-    double paxRows7to13Desired = simVars->getPaxRows7to13Desired() * perPaxWeightLbs;             // in LBS
-    double paxRows14to21Desired = simVars->getPaxRows14to21Desired() * perPaxWeightLbs;           // in LBS
-    double paxRows22to29Desired = simVars->getPaxRows22to29Desired() * perPaxWeightLbs;           // in LBS
-    double cargoFwdContainerActual = simVars->getCargoFwdContainerActual() / conversionFactor;    // in LBS
-    double cargoAftContainerActual = simVars->getCargoAftContainerActual() / conversionFactor;    // in LBS
-    double cargoAftBaggageActual = simVars->getCargoAftBaggageActual() / conversionFactor;        // in LBS
-    double cargoAftBulkActual = simVars->getCargoAftBulkActual() / conversionFactor;              // in LBS
-    double cargoFwdContainerDesired = simVars->getCargoFwdContainerDesired() / conversionFactor;  // in LBS
-    double cargoAftContainerDesired = simVars->getCargoAftContainerDesired() / conversionFactor;  // in LBS
-    double cargoAftBaggageDesired = simVars->getCargoAftBaggageDesired() / conversionFactor;      // in LBS
-    double cargoAftBulkDesired = simVars->getCargoAftBulkDesired() / conversionFactor;            // in LBS
-    double paxTotalWeightActual = (paxRows1to6Actual + paxRows7to13Actual + paxRows14to21Actual + paxRows22to29Actual);
-    double paxTotalWeightDesired = (paxRows1to6Desired + paxRows7to13Desired + paxRows14to21Desired + paxRows22to29Desired);
+    double fuelWeightGallon = simVars->getFuelWeightGallon();
+    double aircraftEmptyWeight = simVars->getEmptyWeight();  // in LBS
+    double perPaxWeightLbs = simVars->getPerPaxWeight() / conversionFactor;
+    double aircraftTotalWeight = simVars->getTotalWeight();                                                          // in LBS
+    double fuelTotalWeight = simVars->getFuelTotalQuantity() * fuelWeightGallon;                                     // in LBS
+    double pilotsWeight = simVars->getPayloadStationWeight(9) + simVars->getPayloadStationWeight(10);                // in LBS
+    double aircraftPayloadTotalWeight = aircraftTotalWeight - aircraftEmptyWeight - fuelTotalWeight - pilotsWeight;  // in LBS
+    double paxStationAWeight = getStationCount((long long)simVars->getPaxStationAFlags()) * perPaxWeightLbs;         // in LBS
+    double paxStationBWeight = getStationCount((long long)simVars->getPaxStationBFlags()) * perPaxWeightLbs;         // in LBS
+    double paxStationCWeight = getStationCount((long long)simVars->getPaxStationCFlags()) * perPaxWeightLbs;         // in LBS
+    double paxStationDWeight = getStationCount((long long)simVars->getPaxStationDFlags()) * perPaxWeightLbs;         // in LBS
+    double cargoFwdContainerActual = simVars->getCargoFwdContainerActual() / conversionFactor;                       // in LBS
+    double cargoAftContainerActual = simVars->getCargoAftContainerActual() / conversionFactor;                       // in LBS
+    double cargoAftBaggageActual = simVars->getCargoAftBaggageActual() / conversionFactor;                           // in LBS
+    double cargoAftBulkActual = simVars->getCargoAftBulkActual() / conversionFactor;                                 // in LBS
+    double paxTotalWeightActual = (paxStationAWeight + paxStationBWeight + paxStationCWeight + paxStationDWeight);
     double cargoTotalWeightActual = (cargoFwdContainerActual + cargoAftContainerActual + cargoAftBaggageActual + cargoAftBulkActual);
-    double cargoTotalWeightDesired = (cargoFwdContainerDesired + cargoAftContainerDesired + cargoAftBaggageDesired + cargoAftBulkDesired);
-
-    if (abs(payloadTotalWeight - paxTotalWeightActual + cargoTotalWeightActual) > 5) {
+    if (abs(aircraftPayloadTotalWeight - paxTotalWeightActual + cargoTotalWeightActual) > 5) {
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::PayloadStation1, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double),
-                                    &paxRows1to6Actual);
+                                    &paxStationAWeight);
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::PayloadStation2, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double),
-                                    &paxRows7to13Actual);
+                                    &paxStationBWeight);
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::PayloadStation3, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double),
-                                    &paxRows14to21Actual);
+                                    &paxStationCWeight);
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::PayloadStation4, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double),
-                                    &paxRows22to29Actual);
+                                    &paxStationDWeight);
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::PayloadStation5, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double),
                                     &cargoFwdContainerActual);
       SimConnect_SetDataOnSimObject(hSimConnect, DataTypesID::PayloadStation6, SIMCONNECT_OBJECT_ID_USER, 0, 0, sizeof(double),
@@ -1064,7 +1068,7 @@ class EngineControl {
   /// </summary>
   void initialize(const char* acftRegistration) {
     srand((int)time(0));
-	
+
     std::cout << "FADEC: Initializing EngineControl" << std::endl;
 
     simVars = new SimVars();
