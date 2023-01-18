@@ -45,70 +45,72 @@ class A32NX_Boarding {
 
     async init() {
         setDefaultWeights();
+        this.updateStationVars();
         this.loadPaxPayload();
         this.loadCargoZero();
         this.loadCargoPayload();
     }
 
-    // Shuffle passengers within same station
+    // Shuffle passengers within same section
     // TODO: Handle this more gracefully
-    async shufflePax(station) {
+    async shufflePax(paxStation) {
         // Set Active = Desired
-        station.activeFlags.setFlags(station.desiredFlags.toNumber());
-        await SimVar.SetSimVarValue(`L:${station.simVar}`, "string", station.desiredFlags.toString());
+        paxStation.activeFlags.setFlags(paxStation.desiredFlags.toNumber());
+        await SimVar.SetSimVarValue(`L:${paxStation.simVar}`, "string", paxStation.desiredFlags.toString());
     }
 
-    async fillPaxStation(station, paxTarget) {
-        const paxDiff = Math.min(paxTarget, station.seats) - station.activeFlags.getTotalFilledSeats();
+    async fillPaxStation(paxStation, paxTarget) {
+
+        const paxDiff = Math.min(paxTarget, paxStation.seats) - paxStation.activeFlags.getTotalFilledSeats();
 
         if (paxDiff > 0) {
-            const fillChoices = station.desiredFlags.getFilledSeatIds()
-                .filter(seatIndex => !station.activeFlags.getFilledSeatIds().includes(seatIndex));
-            station.activeFlags.fillSeats(Math.abs(paxDiff), fillChoices);
-            await SimVar.SetSimVarValue(`L:${station.simVar}`, "string", station.activeFlags.toString());
+            const fillChoices = paxStation.desiredFlags.getFilledSeatIds()
+                .filter(seatIndex => !paxStation.activeFlags.getFilledSeatIds().includes(seatIndex));
+            paxStation.activeFlags.fillSeats(Math.abs(paxDiff), fillChoices);
+            await SimVar.SetSimVarValue(`L:${paxStation.simVar}`, "string", paxStation.activeFlags.toString());
         } else if (paxDiff < 0) {
-            const emptyChoices = station.desiredFlags.getEmptySeatIds()
-                .filter(seatIndex => !station.activeFlags.getEmptySeatIds().includes(seatIndex));
-            station.activeFlags.emptySeats(Math.abs(paxDiff), emptyChoices);
-            await SimVar.SetSimVarValue(`L:${station.simVar}`, "string", station.activeFlags.toString());
+            const emptyChoices = paxStation.desiredFlags.getEmptySeatIds()
+                .filter(seatIndex => !paxStation.activeFlags.getEmptySeatIds().includes(seatIndex));
+            paxStation.activeFlags.emptySeats(Math.abs(paxDiff), emptyChoices);
+            await SimVar.SetSimVarValue(`L:${paxStation.simVar}`, "string", paxStation.activeFlags.toString());
         } else {
-            this.shufflePax(station);
+            this.shufflePax(paxStation);
         }
     }
 
-    async fillCargoStation(station, loadToFill) {
-        station.load = loadToFill;
-        await SimVar.SetSimVarValue(`L:${station.simVar}`, "Number", parseInt(loadToFill));
+    async fillCargoStation(cargoStation, loadToFill) {
+        cargoStation.load = loadToFill;
+        await SimVar.SetSimVarValue(`L:${cargoStation.simVar}`, "Number", parseInt(loadToFill));
     }
 
     loadPaxPayload() {
         const PAX_WEIGHT = SimVar.GetSimVarValue("L:A32NX_WB_PER_PAX_WEIGHT", "Number");
-        return Promise.all(Object.values(this.paxStations).map((station) => {
-            return SimVar.SetSimVarValue(`PAYLOAD STATION WEIGHT:${station.stationIndex}`, getUserUnit(), station.activeFlags.getTotalFilledSeats() * PAX_WEIGHT);
+        return Promise.all(Object.values(this.paxStations).map((paxStation) => {
+            return SimVar.SetSimVarValue(`PAYLOAD STATION WEIGHT:${paxStation.stationIndex}`, getUserUnit(), paxStation.activeFlags.getTotalFilledSeats() * PAX_WEIGHT);
         }));
     }
 
     loadCargoPayload() {
-        return Promise.all(Object.values(this.cargoStations).map((station) => {
-            return SimVar.SetSimVarValue(`PAYLOAD STATION WEIGHT:${station.stationIndex}`, getUserUnit(), station.load);
+        return Promise.all(Object.values(this.cargoStations).map((cargoStation) => {
+            return SimVar.SetSimVarValue(`PAYLOAD STATION WEIGHT:${cargoStation.stationIndex}`, getUserUnit(), cargoStation.load);
         }));
     }
 
     loadCargoZero() {
-        Object.values(this.cargoStations).forEach((station) => {
-            SimVar.SetSimVarValue(`PAYLOAD STATION WEIGHT:${station.stationIndex}`, "Kilograms", 0);
-            SimVar.SetSimVarValue(`L:${station.simVar}_DESIRED`, "Number", 0);
-            SimVar.SetSimVarValue(`L:${station.simVar}`, "Number", 0);
+        Object.values(this.cargoStations).forEach((cargoStation) => {
+            SimVar.SetSimVarValue(`PAYLOAD STATION WEIGHT:${cargoStation.stationIndex}`, "Kilograms", 0);
+            SimVar.SetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number", 0);
+            SimVar.SetSimVarValue(`L:${cargoStation.simVar}`, "Number", 0);
         });
     }
 
     loadPaxZero() {
         Object.values(this.paxStations)
             .reverse()
-            .forEach((station) => SimVar.SetSimVarValue(`L:${station.simVar}_DESIRED`, "Number", parseInt(0)));
+            .forEach((paxStation) => SimVar.SetSimVarValue(`L:${paxStation.simVar}_DESIRED`, "Number", parseInt(0)));
 
         Object.values(this.cargoStations)
-            .forEach((station) => SimVar.SetSimVarValue(`L:${station.simVar}_DESIRED`, "Number", parseInt(0)));
+            .forEach((cargoStation) => SimVar.SetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number", parseInt(0)));
     }
 
     generateMsDelay(boardingRate) {
@@ -126,36 +128,36 @@ class A32NX_Boarding {
         switch (boardState) {
             //GSX doesn't emit 100% boarding, this case is to ensure cargo is 100% filled to target
             case this.gsxStates.COMPLETED:
-                Object.values(this.cargoStations).map((station) => {
-                    const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, "Number");
-                    this.fillCargoStation(station, stationCurrentLoadTarget);
+                Object.values(this.cargoStations).map((cargoStation) => {
+                    const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number");
+                    this.fillCargoStation(cargoStation, stationCurrentLoadTarget);
                 });
                 break;
             case this.gsxStates.PERFORMING:
                 const gsxBoardingTotal = SimVar.GetSimVarValue("L:FSDT_GSX_NUMPASSENGERS_BOARDING_TOTAL", "Number");
                 this.passengersLeftToFillOrEmpty = gsxBoardingTotal - this.prevBoardedOrDeboarded;
 
-                Object.values(this.paxStations).reverse().some((station) => {
-                    const stationCurrentPax = station.activeFlags.getTotalFilledSeats();
-                    const stationCurrentPaxTarget = station.desiredFlags.getTotalFilledSeats();
+                for (const paxStation of Object.values(this.paxStations).reverse()) {
+                    const stationCurrentPax = paxStation.activeFlags.getTotalFilledSeats();
+                    const stationCurrentPaxTarget = paxStation.desiredFlags.getTotalFilledSeats();
                     if (this.passengersLeftToFillOrEmpty <= 0) {
-                        return;
+                        break;
                     }
 
-                    const loadAmount = Math.min(this.passengersLeftToFillOrEmpty, station.seats);
+                    const loadAmount = Math.min(this.passengersLeftToFillOrEmpty, paxStation.seats);
                     if (stationCurrentPax < stationCurrentPaxTarget) {
-                        this.fillPaxStation(station, stationCurrentPax + loadAmount);
+                        this.fillPaxStation(paxStation, stationCurrentPax + loadAmount);
                         this.passengersLeftToFillOrEmpty -= loadAmount;
                     }
-                });
+                }
                 this.prevBoardedOrDeboarded = gsxBoardingTotal;
 
                 const gsxCargoPercentage = SimVar.GetSimVarValue("L:FSDT_GSX_BOARDING_CARGO_PERCENT", "Number");
-                Object.values(this.cargoStations).map((station) => {
-                    const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, "Number");
+                Object.values(this.cargoStations).map((cargoStation) => {
+                    const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number");
 
                     const loadAmount = stationCurrentLoadTarget * (gsxCargoPercentage / 100);
-                    this.fillCargoStation(station, loadAmount);
+                    this.fillCargoStation(cargoStation, loadAmount);
                 });
                 break;
             default:
@@ -173,8 +175,8 @@ class A32NX_Boarding {
 
             // GSX doesn't emit 100% deboard percentage, this is set to ensure cargo completetly empties
             case this.gsxStates.COMPLETED:
-                Object.values(this.cargoStations).map((station) => {
-                    this.fillCargoStation(station, 0);
+                Object.values(this.cargoStations).map((cargoStation) => {
+                    this.fillCargoStation(cargoStation, 0);
                 });
                 break;
 
@@ -182,30 +184,30 @@ class A32NX_Boarding {
                 const gsxDeBoardingTotal = SimVar.GetSimVarValue("L:FSDT_GSX_NUMPASSENGERS_DEBOARDING_TOTAL", "Number");
                 this.passengersLeftToFillOrEmpty = gsxDeBoardingTotal - this.prevBoardedOrDeboarded;
 
-                Object.values(this.paxStations).reverse().some((station) => {
-                    const stationCurrentPax = station.activeFlags.getTotalFilledSeats();
-                    const stationCurrentPaxTarget = station.desiredFlags.getTotalFilledSeats();
+                for (const paxStation of Object.values(this.paxStations).reverse()) {
+                    const stationCurrentPax = paxStation.activeFlags.getTotalFilledSeats();
+                    const stationCurrentPaxTarget = paxStation.desiredFlags.getTotalFilledSeats();
                     if (this.passengersLeftToFillOrEmpty <= 0) {
-                        reyu;
+                        break;
                     }
 
                     if (stationCurrentPax > stationCurrentPaxTarget) {
-                        this.fillPaxStation(station, stationCurrentPax - Math.min(this.passengersLeftToFillOrEmpty, station.seats));
-                        this.passengersLeftToFillOrEmpty -= Math.min(this.passengersLeftToFillOrEmpty, station.seats);
+                        this.fillPaxStation(paxStation, stationCurrentPax - Math.min(this.passengersLeftToFillOrEmpty, paxStation.seats));
+                        this.passengersLeftToFillOrEmpty -= Math.min(this.passengersLeftToFillOrEmpty, paxStation.seats);
                     }
-                });
+                }
                 this.prevBoardedOrDeboarded = gsxDeBoardingTotal;
 
                 const gsxCargoDeBoardPercentage = SimVar.GetSimVarValue("L:FSDT_GSX_DEBOARDING_CARGO_PERCENT", "Number");
-                Object.values(this.cargoStations).some((station) => {
+                for (const cargoStation of Object.values(this.cargoStations)) {
                     if (this.prevCargoDeboardedPercentage == gsxCargoDeBoardPercentage) {
-                        return;
+                        break;
                     }
-                    const stationCurrentLoad = SimVar.GetSimVarValue(`L:${station.simVar}`, "Number");
+                    const stationCurrentLoad = SimVar.GetSimVarValue(`L:${cargoStation.simVar}`, "Number");
 
                     const loadAmount = stationCurrentLoad * ((100 - gsxCargoDeBoardPercentage) / 100);
-                    this.fillCargoStation(station, loadAmount);
-                });
+                    this.fillCargoStation(cargoStation, loadAmount);
+                }
                 this.prevCargoDeboardedPercentage = gsxCargoDeBoardPercentage;
                 break;
             default:
@@ -215,13 +217,13 @@ class A32NX_Boarding {
 
     async manageBoarding(boardingRate) {
         if (boardingRate == 'INSTANT') {
-            Object.values(this.paxStations).some(async (station) => {
-                const stationCurrentPaxTarget = station.desiredFlags.getTotalFilledSeats();
-                await this.fillPaxStation(station, stationCurrentPaxTarget);
+            Object.values(this.paxStations).map(async (paxStation) => {
+                const stationCurrentPaxTarget = paxStation.desiredFlags.getTotalFilledSeats();
+                await this.fillPaxStation(paxStation, stationCurrentPaxTarget);
             });
-            Object.values(this.cargoStations).some(async (station) => {
-                const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, "Number");
-                await this.fillCargoStation(station, stationCurrentLoadTarget);
+            Object.values(this.cargoStations).map(async (cargoStation) => {
+                const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number");
+                await this.fillCargoStation(cargoStation, stationCurrentLoadTarget);
             });
             this.loadPaxPayload();
             this.loadCargoPayload();
@@ -234,33 +236,36 @@ class A32NX_Boarding {
             this.time = 0;
 
             // Stations logic:
-            Object.values(this.cargoStations).reverse().some((station) => {
-                const stationCurrentPax = station.activeFlags.getTotalFilledSeats();
-
-                const stationCurrentPaxTarget = station.desiredFlags.getTotalFilledSeats();
+            for (const paxStation of Object.values(this.paxStations).reverse()) {
+                const stationCurrentPax = paxStation.activeFlags.getTotalFilledSeats();
+                const stationCurrentPaxTarget = paxStation.desiredFlags.getTotalFilledSeats();
 
                 if (stationCurrentPax < stationCurrentPaxTarget) {
-                    this.fillPaxStation(station, stationCurrentPax + 1);
-                    return;
+                    this.fillPaxStation(paxStation, stationCurrentPax + 1);
+                    break;
                 } else if (stationCurrentPax > stationCurrentPaxTarget) {
-                    this.fillPaxStation(station, stationCurrentPax - 1);
-                    return;
+                    this.fillPaxStation(paxStation, stationCurrentPax - 1);
+                    break;
+                } else {
+                    continue;
                 }
-            });
+            }
 
-            Object.values(this.cargoStations).some((station) => {
-                const stationCurrentLoad = SimVar.GetSimVarValue(`L:${station.simVar}`, "Number");
-                const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, "Number");
+            for (const cargoStation of Object.values(this.cargoStations)) {
+                const stationCurrentLoad = SimVar.GetSimVarValue(`L:${cargoStation.simVar}`, "Number");
+                const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number");
 
                 const loadDelta = Math.abs(stationCurrentLoadTarget - stationCurrentLoad);
                 if (stationCurrentLoad < stationCurrentLoadTarget) {
-                    this.fillCargoStation(station, stationCurrentLoad + Math.min(60, loadDelta));
-                    return;
+                    this.fillCargoStation(cargoStation, stationCurrentLoad + Math.min(60, loadDelta));
+                    break;
                 } else if (stationCurrentLoad > stationCurrentLoadTarget) {
-                    this.fillCargoStation(station, stationCurrentLoad - Math.min(60, loadDelta));
-                    return;
+                    this.fillCargoStation(cargoStation, stationCurrentLoad - Math.min(60, loadDelta));
+                    break;
+                } else {
+                    continue;
                 }
-            });
+            }
 
             this.loadPaxPayload();
             this.loadCargoPayload();
@@ -269,20 +274,20 @@ class A32NX_Boarding {
 
     async updateStationVars() {
         // Cargo
-        const currentLoad = Object.values(this.cargoStations).map((station) => SimVar.GetSimVarValue(`L:${station.simVar}`, "Number")).reduce((acc, cur) => acc + cur);
-        const loadTarget = Object.values(this.cargoStations).map((station) => SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, "Number")).reduce((acc, cur) => acc + cur);
+        const currentLoad = Object.values(this.cargoStations).map((cargoStation) => SimVar.GetSimVarValue(`L:${cargoStation.simVar}`, "Number")).reduce((acc, cur) => acc + cur);
+        const loadTarget = Object.values(this.cargoStations).map((cargoStation) => SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number")).reduce((acc, cur) => acc + cur);
 
         // Pax
         let currentPax = 0;
         let paxTarget = 0;
         let isAllPaxStationFilled = true;
-        Object.values(this.paxStations).map((station) => {
-            station.activeFlags.setFlags(SimVar.GetSimVarValue(`L:${station.simVar}`, 'Number'));
-            const stationCurrentPax = station.activeFlags.getTotalFilledSeats();
+        Object.values(this.paxStations).map((paxStation) => {
+            paxStation.activeFlags.setFlags(SimVar.GetSimVarValue(`L:${paxStation.simVar}`, 'Number'));
+            const stationCurrentPax = paxStation.activeFlags.getTotalFilledSeats();
             currentPax += stationCurrentPax;
 
-            station.desiredFlags.setFlags(SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, 'Number'));
-            const stationCurrentPaxTarget = station.desiredFlags.getTotalFilledSeats();
+            paxStation.desiredFlags.setFlags(SimVar.GetSimVarValue(`L:${paxStation.simVar}_DESIRED`, 'Number'));
+            const stationCurrentPaxTarget = paxStation.desiredFlags.getTotalFilledSeats();
             paxTarget += stationCurrentPaxTarget;
 
             if (stationCurrentPax !== stationCurrentPaxTarget) {
@@ -291,9 +296,9 @@ class A32NX_Boarding {
         });
 
         let isAllCargoStationFilled = true;
-        Object.values(this.cargoStations).map((station) => {
-            const stationCurrentLoad = SimVar.GetSimVarValue(`L:${station.simVar}`, "Number");
-            const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${station.simVar}_DESIRED`, "Number");
+        Object.values(this.cargoStations).map((cargoStation) => {
+            const stationCurrentLoad = SimVar.GetSimVarValue(`L:${cargoStation.simVar}`, "Number");
+            const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number");
 
             if (stationCurrentLoad !== stationCurrentLoadTarget) {
                 isAllCargoStationFilled = false;
@@ -366,7 +371,10 @@ class A32NX_Boarding {
                 return;
             }
 
-            [currentPax, paxTarget, isAllPaxStationFilled, currentLoad, loadTarget, isAllCargoStationFilled] = await this.updateStationVars();
+            const [
+                currentPax, paxTarget, isAllPaxStationFilled,
+                currentLoad, loadTarget, isAllCargoStationFilled
+            ] = await this.updateStationVars();
 
             await this.manageSoundControllers(currentPax, paxTarget, boardingStartedByUser);
 
