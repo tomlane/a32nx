@@ -18,10 +18,14 @@ export class AdirsValueProvider<T extends AdirsSimVars> {
             this.varProvider.updateSimVarSource('vsInert', { name: `L:A32NX_ADIRS_IR_${inertialSource}_VERTICAL_SPEED`, type: SimVarValueType.Number });
             this.varProvider.updateSimVarSource('pitch', { name: `L:A32NX_ADIRS_IR_${inertialSource}_PITCH`, type: SimVarValueType.Number });
             this.varProvider.updateSimVarSource('roll', { name: `L:A32NX_ADIRS_IR_${inertialSource}_ROLL`, type: SimVarValueType.Number });
-            this.varProvider.updateSimVarSource('heading', { name: `L:A32NX_ADIRS_IR_${inertialSource}_HEADING`, type: SimVarValueType.Number });
-            this.varProvider.updateSimVarSource('groundTrack', { name: `L:A32NX_ADIRS_IR_${inertialSource}_TRACK`, type: SimVarValueType.Number });
+            this.varProvider.updateSimVarSource('magHeadingRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_HEADING`, type: SimVarValueType.Number });
+            this.varProvider.updateSimVarSource('magTrackRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_TRACK`, type: SimVarValueType.Number });
             this.varProvider.updateSimVarSource('fpaRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_FLIGHT_PATH_ANGLE`, type: SimVarValueType.Number });
             this.varProvider.updateSimVarSource('daRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_DRIFT_ANGLE`, type: SimVarValueType.Number });
+            this.varProvider.updateSimVarSource('latAccRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_BODY_LATERAL_ACC`, type: SimVarValueType.Number });
+            this.varProvider.updateSimVarSource('irMaintWordRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_MAINT_WORD`, type: SimVarValueType.Number });
+            this.varProvider.updateSimVarSource('trueHeadingRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_TRUE_HEADING`, type: SimVarValueType.Number });
+            this.varProvider.updateSimVarSource('trueTrackRaw', { name: `L:A32NX_ADIRS_IR_${inertialSource}_TRUE_TRACK`, type: SimVarValueType.Number });
         });
 
         sub.on('airKnob').whenChanged().handle((knobPosition) => {

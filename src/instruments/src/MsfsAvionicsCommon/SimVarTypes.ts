@@ -10,6 +10,7 @@ export interface DisplayVars {
 export interface AdirsSimVars {
     pitch: number;
     roll: number;
+    magHeadingRaw: number;
     heading: number;
     trueHeading: number;
     altitude: number;
@@ -17,6 +18,7 @@ export interface AdirsSimVars {
     vsInert: number;
     vsBaro: number;
     groundTrack: number;
+    magTrackRaw: number;
     trueGroundTrack: number;
     groundSpeed: number;
     trueAirSpeed: number;
@@ -27,6 +29,10 @@ export interface AdirsSimVars {
     mach: number;
     latitude: number;
     longitude: number;
+    latAccRaw: number;
+    irMaintWordRaw: number;
+    trueHeadingRaw: number;
+    trueTrackRaw: number;
 }
 
 export enum AdirsVars {
