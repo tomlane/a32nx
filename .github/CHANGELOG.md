@@ -42,6 +42,7 @@
 1. [HYD] Realistic randomized yellow accumulator starting state - @Crocket63 (crocket)
 1. [HYD] RAT code refactor to allow for hyd or elec rat design - @Crocket63 (crocket)
 1. [MCDU] Reset of flight plan and stored data on Database switch - @Maverickwoe (Garoomf#4683)
+1. [EFB] Added pause at T/D function - @2hwk (2Cas#1022)
 
 ## 0.9.0
 
