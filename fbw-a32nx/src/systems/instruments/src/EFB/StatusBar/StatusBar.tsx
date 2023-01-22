@@ -12,6 +12,10 @@ import { TooltipWrapper } from '../UtilComponents/TooltipWrapper';
 import { BatteryStatus } from './BatteryStatus';
 import { useAppSelector } from '../Store/store';
 import { initialState } from '../Store/features/simBrief';
+<<<<<<< HEAD:fbw-a32nx/src/systems/instruments/src/EFB/StatusBar/StatusBar.tsx
+=======
+import { ClientState } from '../../../../simbridge-client/src';
+>>>>>>> 25ccc402d8 (feat: vertical navigation v1 #7080 (@930841d)):src/instruments/src/EFB/StatusBar/StatusBar.tsx
 import { QuickControls } from './QuickControls';
 
 interface StatusBarProps {

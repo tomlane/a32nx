@@ -30,6 +30,7 @@
 1. [EFB] Added QuickControls to flyPad StatusBar - @Benjozork (Benjamin Dupont) @frankkopp (Frank Kopp)
 1. [SOUND] Fix announcements playing twice and adding check for power to PA - @frankkopp (Frank Kopp)
 1. [ENG] Adjust oil pressure table - @tracernz (Mike)
+1. [EFB] Added pause at T/D function - @2hwk (2Cas#1022)
 
 ## 0.9.0
 
