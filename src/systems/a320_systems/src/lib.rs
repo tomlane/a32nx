@@ -150,6 +150,7 @@ impl Aircraft for A320 {
             .update_after_electrical(&self.electrical, electricity);
         self.emergency_electrical_overhead
             .update_after_electrical(context, &self.electrical);
+        self.boarding.update(context);
     }
 
     fn update_after_power_distribution(&mut self, context: &UpdateContext) {
@@ -219,7 +220,6 @@ impl Aircraft for A320 {
             &self.pressurization_overhead,
             [self.lgcius.lgciu1(), self.lgcius.lgciu2()],
         );
-        self.boarding.update(context);
     }
 }
 impl SimulationElement for A320 {
