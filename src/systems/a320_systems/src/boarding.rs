@@ -70,6 +70,12 @@ impl SimulationElement for A320BoardingSounds {
     }
 }
 
+pub enum A320PaxStation {
+    A,
+    B,
+    C,
+    D,
+}
 pub struct A320Boarding {
     is_boarding_id: VariableIdentifier,
     board_rate_id: VariableIdentifier,
@@ -407,42 +413,40 @@ mod boarding_test {
             self.query(|a| a.boarding.pax(ps))
         }
 
-        /*
         fn pax_a(&self) -> u64 {
-            self.pax(0)
+            self.pax(A320PaxStation::A as usize)
         }
 
         fn pax_b(&self) -> u64 {
-            self.pax(1)
+            self.pax(A320PaxStation::B as usize)
         }
 
         fn pax_c(&self) -> u64 {
-            self.pax(2)
+            self.pax(A320PaxStation::C as usize)
         }
 
         fn pax_d(&self) -> u64 {
-            self.pax(3)
+            self.pax(A320PaxStation::D as usize)
         }
-        */
 
         fn pax_num(&self, ps: usize) -> i8 {
             self.query(|a| a.boarding.pax_num(ps))
         }
 
         fn pax_a_num(&self) -> i8 {
-            self.pax_num(0)
+            self.pax_num(A320PaxStation::A as usize)
         }
 
         fn pax_b_num(&self) -> i8 {
-            self.pax_num(1)
+            self.pax_num(A320PaxStation::B as usize)
         }
 
         fn pax_c_num(&self) -> i8 {
-            self.pax_num(2)
+            self.pax_num(A320PaxStation::C as usize)
         }
 
         fn pax_d_num(&self) -> i8 {
-            self.pax_num(3)
+            self.pax_num(A320PaxStation::D as usize)
         }
 
         fn pax_len(&self) -> usize {
@@ -628,4 +632,8 @@ mod boarding_test {
         assert!(test_bed.pax_c_num() == pax_c);
         assert!(test_bed.pax_d_num() == pax_d);
     }
+
+    // TODO: Cargo Tests
+
+    // TODO: Payload sync tests
 }
