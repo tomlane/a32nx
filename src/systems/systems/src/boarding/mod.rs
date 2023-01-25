@@ -1,11 +1,11 @@
 use crate::simulation::{
-    Read, Reader, SimulationElement, SimulatorReader, SimulatorWriter, VariableIdentifier, Write,
-    Writer,
+    Read, Reader, SimulationElement, SimulationElementVisitor, SimulatorReader, SimulatorWriter,
+    VariableIdentifier, Write, Writer,
 };
+use approx::relative_eq;
 
 #[derive(Debug)]
 pub struct PaxSync {
-    name: String,
     pax_target_id: VariableIdentifier,
     pax_id: VariableIdentifier,
     per_pax_weight_id: VariableIdentifier,
@@ -20,7 +20,6 @@ pub struct PaxSync {
 }
 impl PaxSync {
     pub fn new(
-        name: String,
         pax_id: VariableIdentifier,
         pax_target_id: VariableIdentifier,
         per_pax_weight_id: VariableIdentifier,
@@ -28,7 +27,6 @@ impl PaxSync {
         payload_id: VariableIdentifier,
     ) -> Self {
         PaxSync {
-            name,
             pax_id,
             pax_target_id,
             per_pax_weight_id,
@@ -46,6 +44,10 @@ impl PaxSync {
         self.pax == self.pax_target
     }
 
+    pub fn payload_is_sync(&self) -> bool {
+        self.pax_num() as f64 * self.per_pax_weight / self.unit_convert == self.payload
+    }
+
     pub fn pax(&self) -> u64 {
         self.pax
     }
@@ -58,8 +60,12 @@ impl PaxSync {
         self.pax_target.count_ones() as i8
     }
 
+    pub fn payload(&self) -> f64 {
+        self.payload
+    }
+
     pub fn load_payload(&mut self) {
-        self.payload = self.pax_num() as f64 * self.per_pax_weight * self.unit_convert;
+        self.payload = self.pax_num() as f64 * self.per_pax_weight / self.unit_convert;
     }
 
     pub fn move_all_pax(&mut self) {
@@ -67,10 +73,10 @@ impl PaxSync {
         self.load_payload();
     }
 
-    pub fn move_1_pax(&mut self) {
-        let pax_delta = self.pax_target_num() - self.pax_num();
+    pub fn move_one_pax(&mut self) {
+        let pax_diff = self.pax_target_num() - self.pax_num();
 
-        if pax_delta > 0 {
+        if pax_diff > 0 {
             // Union of empty active and filled desired
             // XOR to add right most bit
             let n = !self.pax & self.pax_target;
@@ -78,7 +84,7 @@ impl PaxSync {
                 let mask = n ^ (n & (n - 1));
                 self.pax ^= mask;
             }
-        } else if pax_delta < 0 {
+        } else if pax_diff < 0 {
             // Union of filled active and empty desired
             // Remove right most bit
             let n = self.pax & !self.pax_target;
@@ -106,6 +112,7 @@ impl SimulationElement for PaxSync {
         self.pax_target = reader.read(&self.pax_target_id);
         self.per_pax_weight = reader.read(&self.per_pax_weight_id);
         self.unit_convert = reader.read(&self.unit_convert_id);
+        self.payload = reader.read(&self.payload_id);
     }
     fn write(&self, writer: &mut SimulatorWriter) {
         writer.write(&self.pax_id, self.pax);
@@ -119,34 +126,80 @@ pub struct CargoSync {
     cargo_target_id: VariableIdentifier,
     cargo_id: VariableIdentifier,
     payload_id: VariableIdentifier,
+    unit_convert_id: VariableIdentifier,
     cargo: f64,
     cargo_target: f64,
     payload: f64,
+    unit_convert: f64,
 }
 impl CargoSync {
     pub fn new(
         cargo_id: VariableIdentifier,
         cargo_target_id: VariableIdentifier,
+        unit_convert_id: VariableIdentifier,
         payload_id: VariableIdentifier,
     ) -> Self {
         CargoSync {
             cargo_id,
             cargo_target_id,
+            unit_convert_id,
             payload_id,
             cargo: 0.0,
             cargo_target: 0.0,
             payload: 0.0,
+            unit_convert: 0.0,
         }
     }
 
     pub fn cargo(&self) -> f64 {
         self.cargo
     }
+
+    pub fn payload(&self) -> f64 {
+        self.payload
+    }
+
+    pub fn unit_convert(&self) -> f64 {
+        self.unit_convert
+    }
+
+    pub fn cargo_is_target(&self) -> bool {
+        relative_eq!(self.cargo, self.cargo_target)
+    }
+
+    pub fn payload_is_sync(&self) -> bool {
+        relative_eq!(self.cargo, self.payload * self.unit_convert)
+    }
+
+    pub fn load_payload(&mut self) {
+        self.payload = self.cargo / self.unit_convert;
+    }
+
+    pub fn move_all_cargo(&mut self) {
+        self.cargo = self.cargo_target;
+        self.load_payload();
+    }
+
+    pub fn move_one_cargo(&mut self) {
+        let cargo_delta = f64::abs(self.cargo_target - self.cargo);
+
+        if self.cargo < self.cargo_target {
+            self.cargo += f64::min(cargo_delta, 60.0);
+        } else if self.cargo > self.cargo_target {
+            self.cargo -= f64::min(cargo_delta, 60.0);
+        }
+        self.load_payload();
+    }
 }
 impl SimulationElement for CargoSync {
+    fn accept<T: SimulationElementVisitor>(&mut self, visitor: &mut T) {
+        visitor.visit(self);
+    }
     fn read(&mut self, reader: &mut SimulatorReader) {
         self.cargo = reader.read(&self.cargo_id);
         self.cargo_target = reader.read(&self.cargo_target_id);
+        self.unit_convert = reader.read(&self.unit_convert_id);
+        self.payload = reader.read(&self.payload_id);
     }
     fn write(&self, writer: &mut SimulatorWriter) {
         writer.write(&self.cargo_id, self.cargo);
