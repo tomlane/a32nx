@@ -224,6 +224,7 @@ export class NDComponent extends DisplayComponent<NDProps> {
                         heading={this.magneticHeadingWord}
                         rangeValue={this.mapRangeRadius as Subject<EfisNdRangeValue>}
                         isUsingTrackUpMode={this.isUsingTrackUpMode}
+                        index={this.props.side === 'L' ? 2 : 1}
                     />
                     <RoseVorPage
                         bus={this.props.bus}
@@ -231,7 +232,7 @@ export class NDComponent extends DisplayComponent<NDProps> {
                         heading={this.magneticHeadingWord}
                         rangeValue={this.mapRangeRadius as Subject<EfisNdRangeValue>}
                         isUsingTrackUpMode={this.isUsingTrackUpMode}
-                        index={1} // FIXME
+                        index={this.props.side === 'R' ? 2 : 1}
                     />
                     <RoseNavPage
                         bus={this.props.bus}

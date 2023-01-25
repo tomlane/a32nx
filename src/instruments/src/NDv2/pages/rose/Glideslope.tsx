@@ -28,6 +28,8 @@ export class GlideSlope extends DisplayComponent<GlideSlopeProps> {
 
         const subs = this.props.bus.getSubscriber<VorSimVars>();
 
+        // TODO select correct MMR
+
         subs.on('glideSlopeValid').whenChanged().handle((value) => {
             this.gsAvailableSub.set(value);
         });

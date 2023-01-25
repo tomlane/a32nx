@@ -1,12 +1,16 @@
 import { FSComponent, Subject, VNode } from 'msfssdk';
-import { RoseMode } from './RoseMode';
+import { RoseMode, RoseModeProps } from './RoseMode';
 import { TrackBug } from '../../shared/TrackBug';
 import { RoseModeUnderlay } from './RoseModeUnderlay';
 import { NDControlEvents } from '../../NDControlEvents';
 import { IlsInfoIndicator } from './IlsInfoIndicator';
 import { GlideSlope } from './Glideslope';
 
-export class RoseLSPage extends RoseMode {
+export interface RoseLsProps extends RoseModeProps {
+    index: 1 | 2,
+}
+
+export class RoseLSPage extends RoseMode<RoseLsProps> {
     isVisible = Subject.create(false);
 
     onShow() {
@@ -20,7 +24,7 @@ export class RoseLSPage extends RoseMode {
     render(): VNode | null {
         return (
             <g visibility={this.isVisible.map((v) => (v ? 'visible' : 'hidden'))}>
-                <IlsInfoIndicator bus={this.props.bus} />
+                <IlsInfoIndicator bus={this.props.bus} index={this.props.index} />
 
                 <GlideSlope bus={this.props.bus} />
 
