@@ -71,7 +71,7 @@ export class VorInfoIndicator extends DisplayComponent<VorInfoIndicatorProps> {
             <Layer x={748} y={28}>
                 <text x={-102} y={0} fontSize={25} class="White" textAnchor="end">
                     VOR
-                    {this.props.index}
+                    {this.props.index.toString()}
                 </text>
 
                 <g visibility={this.vorAvailable.map(this.visibilityFn)}>
