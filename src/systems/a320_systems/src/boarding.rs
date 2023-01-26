@@ -280,9 +280,9 @@ impl A320Boarding {
             if self.pax_payload_is_sync(ps) {
                 continue;
             } else {
-                self.load_pax_payload(ps);
                 // TODO FIXME: Remove debug
                 println!("Pax payload was not in sync for {}", ps);
+                self.load_pax_payload(ps);
             }
         }
         for cs in 0..self.cargo.len() {
@@ -291,9 +291,6 @@ impl A320Boarding {
             } else {
                 // TODO FIXME: Remove debug
                 println!("Cargo payload was not in sync for {}", cs);
-
-                println!("Cargo: {}", self.cargo[cs].cargo());
-                println!("Payload: {}", self.cargo[cs].payload());
                 self.load_cargo_payload(cs);
             }
         }
@@ -436,8 +433,8 @@ impl SimulationElement for A320Boarding {
 mod boarding_test {
 
     const LBS_TO_KG: f64 = 0.4535934;
-    const MINUTES_TO_HOURS: u64 = 60;
-    const SECONDS_TO_MINUTES: u64 = 60;
+    const HOURS_TO_MINUTES: u64 = 60;
+    const MINUTES_TO_SECONDS: u64 = 60;
     const DEFAULT_PER_PAX_WEIGHT_KG: f64 = 84.0;
 
     use approx::relative_eq;
@@ -540,7 +537,7 @@ mod boarding_test {
             self
         }
 
-        fn load_pax(mut self, ps: A320Pax, pax_qty: i8) -> Self {
+        fn load_pax(&mut self, ps: A320Pax, pax_qty: i8) {
             assert!(pax_qty <= A320_PAX_INFO[ps].max_pax);
 
             let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
@@ -563,14 +560,17 @@ mod boarding_test {
 
             self.write_by_name(&A320_PAX_INFO[ps].pax_id, pax_flag);
             self.write_by_name(&A320_PAX_INFO[ps].payload_id, payload);
+        }
 
+        fn with_pax(mut self, ps: A320Pax, pax_qty: i8) -> Self {
+            self.load_pax(ps, pax_qty);
             self
         }
 
-        fn load_target_pax(mut self, ps: A320Pax, pax_qty: i8) -> Self {
+        fn target_pax(&mut self, ps: A320Pax, pax_qty: i8) {
             assert!(pax_qty <= A320_PAX_INFO[ps].max_pax);
 
-            let seed = 380320;
+            let seed = 747777;
             let mut rng = rand_pcg::Pcg32::seed_from_u64(seed);
 
             let binding: Vec<i8> = (0..A320_PAX_INFO[ps].max_pax).collect();
@@ -584,10 +584,14 @@ mod boarding_test {
             }
 
             self.write_by_name(&A320_PAX_INFO[ps].pax_target_id, pax_flag);
+        }
+
+        fn with_pax_target(mut self, ps: A320Pax, pax_qty: i8) -> Self {
+            self.target_pax(ps, pax_qty);
             self
         }
 
-        fn load_cargo(mut self, cs: A320Cargo, cargo_qty: f64) -> Self {
+        fn load_cargo(&mut self, cs: A320Cargo, cargo_qty: f64) {
             let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
 
             assert!(cargo_qty <= A320_CARGO_INFO[cs].max_cargo_kg * unit_convert / LBS_TO_KG);
@@ -596,17 +600,14 @@ mod boarding_test {
 
             self.write_by_name(&A320_CARGO_INFO[cs].cargo_id, cargo_qty);
             self.write_by_name(&A320_CARGO_INFO[cs].payload_id, payload);
-
-            self
         }
 
-        fn load_target_cargo(mut self, cs: A320Cargo, cargo_qty: f64) -> Self {
+        fn target_cargo(&mut self, cs: A320Cargo, cargo_qty: f64) {
             let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
 
             assert!(cargo_qty <= A320_CARGO_INFO[cs].max_cargo_kg * unit_convert / LBS_TO_KG);
 
             self.write_by_name(&A320_CARGO_INFO[cs].cargo_target_id, cargo_qty);
-            self
         }
 
         fn start_boarding(mut self) -> Self {
@@ -614,18 +615,159 @@ mod boarding_test {
             self
         }
 
-        fn load_half_pax(self) -> Self {
-            self.load_pax(A320Pax::A, A320_PAX_INFO[A320Pax::A].max_pax / 2)
-                .load_pax(A320Pax::B, A320_PAX_INFO[A320Pax::B].max_pax / 2)
-                .load_pax(A320Pax::C, A320_PAX_INFO[A320Pax::C].max_pax / 2)
-                .load_pax(A320Pax::D, A320_PAX_INFO[A320Pax::D].max_pax / 2)
+        fn with_no_pax(mut self) -> Self {
+            for ps in A320Pax::iterator() {
+                self.load_pax(ps, 0);
+            }
+            self
         }
 
-        fn target_half_pax(self) -> Self {
-            self.load_target_pax(A320Pax::A, A320_PAX_INFO[A320Pax::A].max_pax / 2)
-                .load_target_pax(A320Pax::B, A320_PAX_INFO[A320Pax::B].max_pax / 2)
-                .load_target_pax(A320Pax::C, A320_PAX_INFO[A320Pax::C].max_pax / 2)
-                .load_target_pax(A320Pax::D, A320_PAX_INFO[A320Pax::D].max_pax / 2)
+        fn with_half_pax(mut self) -> Self {
+            for ps in A320Pax::iterator() {
+                self.load_pax(ps, A320_PAX_INFO[ps].max_pax / 2);
+            }
+            self
+        }
+
+        fn with_full_pax(mut self) -> Self {
+            for ps in A320Pax::iterator() {
+                self.load_pax(ps, A320_PAX_INFO[ps].max_pax);
+            }
+            self
+        }
+
+        fn target_half_pax(mut self) -> Self {
+            for ps in A320Pax::iterator() {
+                self.target_pax(ps, A320_PAX_INFO[ps].max_pax / 2);
+            }
+            self
+        }
+
+        fn target_full_pax(mut self) -> Self {
+            for ps in A320Pax::iterator() {
+                self.target_pax(ps, A320_PAX_INFO[ps].max_pax);
+            }
+            self
+        }
+
+        fn target_no_pax(mut self) -> Self {
+            for ps in A320Pax::iterator() {
+                self.target_pax(ps, 0);
+            }
+            self
+        }
+
+        fn has_no_pax(&self) {
+            for ps in A320Pax::iterator() {
+                let pax_num = 0;
+                let pax_payload = 0.0;
+                assert_eq!(self.pax_num(ps), pax_num);
+                assert!(relative_eq!(self.pax_payload(ps), pax_payload));
+            }
+        }
+
+        fn has_half_pax(&self) {
+            for ps in A320Pax::iterator() {
+                let pax_num = A320_PAX_INFO[ps].max_pax / 2;
+                let pax_payload = pax_num as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
+                assert_eq!(self.pax_num(ps), pax_num);
+                assert!(relative_eq!(self.pax_payload(ps), pax_payload));
+            }
+        }
+
+        fn has_full_pax(&self) {
+            for ps in A320Pax::iterator() {
+                let pax_num = A320_PAX_INFO[ps].max_pax;
+                let pax_payload = pax_num as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
+                assert_eq!(self.pax_num(ps), pax_num);
+                assert!(relative_eq!(self.pax_payload(ps), pax_payload));
+            }
+        }
+
+        fn load_half_cargo(mut self) -> Self {
+            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+
+            for cs in A320Cargo::iterator() {
+                self.load_cargo(
+                    cs,
+                    A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG) / 2.0,
+                );
+            }
+            self
+        }
+
+        fn load_full_cargo(mut self) -> Self {
+            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+
+            for cs in A320Cargo::iterator() {
+                self.load_cargo(
+                    cs,
+                    A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG),
+                );
+            }
+            self
+        }
+
+        fn has_no_cargo(&self) {
+            for cs in A320Cargo::iterator() {
+                let cargo = 0.0;
+                let cargo_payload = 0.0;
+                assert_eq!(self.cargo(cs), cargo);
+                assert!(relative_eq!(self.cargo_payload(cs), cargo_payload));
+            }
+        }
+
+        fn has_half_cargo(&mut self) {
+            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+
+            for cs in A320Cargo::iterator() {
+                let cargo = A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG) / 2.0;
+                let cargo_payload = cargo / unit_convert;
+                assert_eq!(self.cargo(cs), cargo);
+                assert!(relative_eq!(self.cargo_payload(cs), cargo_payload));
+            }
+        }
+
+        fn has_full_cargo(&mut self) {
+            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+
+            for cs in A320Cargo::iterator() {
+                let cargo = A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG);
+                let cargo_payload = cargo / unit_convert;
+                assert_eq!(self.cargo(cs), cargo);
+                assert!(relative_eq!(self.cargo_payload(cs), cargo_payload));
+            }
+        }
+
+        fn target_no_cargo(mut self) -> Self {
+            for cs in A320Cargo::iterator() {
+                self.target_cargo(cs, 0.0);
+            }
+            self
+        }
+
+        fn target_half_cargo(mut self) -> Self {
+            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+
+            for cs in A320Cargo::iterator() {
+                self.target_cargo(
+                    cs,
+                    A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG) / 2.0,
+                );
+            }
+            self
+        }
+
+        fn target_full_cargo(mut self) -> Self {
+            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+
+            for cs in A320Cargo::iterator() {
+                self.target_cargo(
+                    cs,
+                    A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG),
+                );
+            }
+            self
         }
 
         fn is_boarding(&self) -> bool {
@@ -700,173 +842,77 @@ mod boarding_test {
         assert!(test_bed.contains_variable_with_name(&A320_PAX_INFO[A320Pax::C].pax_id));
         assert!(test_bed.contains_variable_with_name(&A320_PAX_INFO[A320Pax::D].pax_id));
     }
-
     #[test]
-    fn loaded_pax_a_c() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax;
-        let test_bed = test_bed_with()
-            .init_vars_kg()
-            .load_pax(A320Pax::A, pax_a)
-            .load_pax(A320Pax::C, pax_c)
-            .and_run();
+    fn loaded_no_pax() {
+        let test_bed = test_bed_with().init_vars_kg().with_no_pax().and_run();
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), 0);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), 0);
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = 0.0;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = 0.0;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
-    }
-
-    #[test]
-    fn loaded_pax_b_d() {
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax;
-        let test_bed = test_bed_with()
-            .init_vars_kg()
-            .load_pax(A320Pax::B, pax_b)
-            .load_pax(A320Pax::D, pax_d)
-            .and_run();
-
-        assert_eq!(test_bed.pax_num(A320Pax::A), 0);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), 0);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        let pax_a_payload = 0.0;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = 0.0;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
+        test_bed.has_no_pax();
+        test_bed.has_no_cargo();
     }
 
     #[test]
     fn loaded_full_pax() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax;
-        let test_bed = test_bed_with()
-            .init_vars_kg()
-            .load_pax(A320Pax::A, pax_a)
-            .load_pax(A320Pax::B, pax_b)
-            .load_pax(A320Pax::C, pax_c)
-            .load_pax(A320Pax::D, pax_d)
-            .and_run();
+        let test_bed = test_bed_with().init_vars_kg().with_full_pax().and_run();
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
+        test_bed.has_full_pax();
+        test_bed.has_no_cargo();
     }
 
     #[test]
     fn loaded_half_pax() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
-        let test_bed = test_bed_with().init_vars_kg().load_half_pax().and_run();
+        let test_bed = test_bed_with().init_vars_kg().with_half_pax().and_run();
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
+        test_bed.has_half_pax();
+        test_bed.has_no_cargo();
     }
 
     #[test]
-    fn target_half_pax_pre_board() {
+    fn loaded_no_pax_full_cargo() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_no_pax()
+            .load_full_cargo()
+            .and_run();
+
+        test_bed.has_no_pax();
+        test_bed.has_full_cargo();
+    }
+
+    #[test]
+    fn loaded_no_pax_half_cargo() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_no_pax()
+            .load_half_cargo()
+            .and_run();
+
+        test_bed.has_no_pax();
+        test_bed.has_half_cargo();
+    }
+
+    #[test]
+    fn loaded_half_pax_half_cargo_use_lbs() {
+        let mut test_bed = test_bed_with()
+            .init_vars_lbs()
+            .with_half_pax()
+            .load_half_cargo()
+            .and_run();
+
+        test_bed.has_half_pax();
+        test_bed.has_half_cargo();
+    }
+
+    #[test]
+    fn target_half_pax_half_cargo_pre_board() {
         let test_bed = test_bed_with()
             .init_vars_kg()
             .target_half_pax()
+            .target_half_cargo()
             .and_run()
             .and_stabilize();
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), 0);
-        assert_eq!(test_bed.pax_num(A320Pax::B), 0);
-        assert_eq!(test_bed.pax_num(A320Pax::C), 0);
-        assert_eq!(test_bed.pax_num(A320Pax::D), 0);
+        test_bed.has_no_pax();
+        test_bed.has_no_cargo();
     }
 
     #[test]
@@ -877,10 +923,6 @@ mod boarding_test {
 
     #[test]
     fn target_half_pax_trigger_and_finish_board() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
         let mut test_bed = test_bed_with()
             .init_vars_kg()
             .target_half_pax()
@@ -889,46 +931,18 @@ mod boarding_test {
             .and_run()
             .and_stabilize();
 
-        let one_hour_in_seconds = 1 * SECONDS_TO_MINUTES * MINUTES_TO_HOURS;
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
 
         test_bed
             .test_bed
-            .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
+        test_bed.has_half_pax();
+        test_bed.has_no_cargo();
     }
 
     #[test]
     fn target_half_pax_trigger_and_finish_board_realtime_use_lbs() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
         let mut test_bed = test_bed_with()
             .init_vars_lbs()
             .target_half_pax()
@@ -937,495 +951,235 @@ mod boarding_test {
             .and_run()
             .and_stabilize();
 
-        let one_hour_in_seconds = 1 * SECONDS_TO_MINUTES * MINUTES_TO_HOURS;
+        let one_hour_in_seconds = 1 * HOURS_TO_MINUTES * MINUTES_TO_SECONDS;
 
         test_bed
             .test_bed
             .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
+        test_bed.has_half_pax();
+        test_bed.has_no_cargo();
     }
 
     #[test]
-    fn loaded_half_pax_half_cargo_leave_idle() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
-        let fwd_baggage = 1701.0;
-        let aft_container = 1213.0;
-        let aft_baggage = 1055.0;
-        let aft_bulk = 748.5;
+    fn loaded_half_pax_half_cargo_idle_pending() {
         let mut test_bed = test_bed_with()
             .init_vars_kg()
-            .load_half_pax()
-            .load_cargo(A320Cargo::FwdBaggage, fwd_baggage)
-            .load_cargo(A320Cargo::AftContainer, aft_container)
-            .load_cargo(A320Cargo::AftBaggage, aft_baggage)
-            .load_cargo(A320Cargo::AftBulkLoose, aft_bulk)
+            .with_half_pax()
+            .load_half_cargo()
             .and_run();
 
-        let one_hour_in_seconds = 1 * SECONDS_TO_MINUTES * MINUTES_TO_HOURS;
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
 
         test_bed
             .test_bed
-            .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
-        let fwd_baggage_payload = fwd_baggage / LBS_TO_KG;
-        let aft_container_payload = aft_container / LBS_TO_KG;
-        let aft_baggage_payload = aft_baggage / LBS_TO_KG;
-        let aft_bulk_payload = aft_bulk / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::FwdBaggage),
-            fwd_baggage_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftContainer),
-            aft_container_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBaggage),
-            aft_baggage_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBulkLoose),
-            aft_bulk_payload
-        ));
+        test_bed.has_half_pax();
+        test_bed.has_half_cargo();
     }
 
     #[test]
-    fn loaded_half_pax_full_cargo_use_lbs() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
-        let fwd_baggage = A320_CARGO_INFO[A320Cargo::FwdBaggage].max_cargo_kg / LBS_TO_KG;
-        let aft_container = A320_CARGO_INFO[A320Cargo::AftContainer].max_cargo_kg / LBS_TO_KG;
-        let aft_baggage = A320_CARGO_INFO[A320Cargo::AftBaggage].max_cargo_kg / LBS_TO_KG;
-        let aft_bulk = A320_CARGO_INFO[A320Cargo::AftBulkLoose].max_cargo_kg / LBS_TO_KG;
-        let mut test_bed = test_bed_with()
-            .init_vars_lbs()
-            .load_half_pax()
-            .load_cargo(A320Cargo::FwdBaggage, fwd_baggage)
-            .load_cargo(A320Cargo::AftContainer, aft_container)
-            .load_cargo(A320Cargo::AftBaggage, aft_baggage)
-            .load_cargo(A320Cargo::AftBulkLoose, aft_bulk)
-            .and_run();
-
-        let one_hour_in_seconds = 1 * SECONDS_TO_MINUTES * MINUTES_TO_HOURS;
-
-        test_bed
-            .test_bed
-            .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
-
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
-
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
-    }
-
-    #[test]
-    fn target_half_pax_half_cargo_and_finish_board() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
-        let fwd_baggage = A320_CARGO_INFO[A320Cargo::FwdBaggage].max_cargo_kg / 2.0;
-        let aft_container = A320_CARGO_INFO[A320Cargo::AftContainer].max_cargo_kg / 2.0;
-        let aft_baggage = A320_CARGO_INFO[A320Cargo::AftBaggage].max_cargo_kg / 2.0;
-        let aft_bulk = A320_CARGO_INFO[A320Cargo::AftBulkLoose].max_cargo_kg / 2.0;
+    fn target_half_pax_half_cargo_and_complete_board() {
         let mut test_bed = test_bed_with()
             .init_vars_kg()
             .target_half_pax()
-            .load_target_cargo(A320Cargo::FwdBaggage, fwd_baggage)
-            .load_target_cargo(A320Cargo::AftContainer, aft_container)
-            .load_target_cargo(A320Cargo::AftBaggage, aft_baggage)
-            .load_target_cargo(A320Cargo::AftBulkLoose, aft_bulk)
+            .target_half_cargo()
             .fast_board_rate()
             .start_boarding()
             .and_run()
             .and_stabilize();
 
-        let one_hour_in_seconds = 1 * SECONDS_TO_MINUTES * MINUTES_TO_HOURS;
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
 
         test_bed
             .test_bed
-            .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
-
-        let fwd_baggage_payload = fwd_baggage / LBS_TO_KG;
-        let aft_container_payload = aft_container / LBS_TO_KG;
-        let aft_baggage_payload = aft_baggage / LBS_TO_KG;
-        let aft_bulk_payload = aft_bulk / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::FwdBaggage),
-            fwd_baggage_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftContainer),
-            aft_container_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBaggage),
-            aft_baggage_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBulkLoose),
-            aft_bulk_payload
-        ));
+        test_bed.has_half_pax();
+        test_bed.has_half_cargo();
     }
 
     #[test]
     fn target_half_pax_half_cargo_and_finish_board_use_lbs() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
-        let fwd_baggage = A320_CARGO_INFO[A320Cargo::FwdBaggage].max_cargo_kg / 2.0 / LBS_TO_KG;
-        let aft_container = A320_CARGO_INFO[A320Cargo::AftContainer].max_cargo_kg / 2.0 / LBS_TO_KG;
-        let aft_baggage = A320_CARGO_INFO[A320Cargo::AftBaggage].max_cargo_kg / 2.0 / LBS_TO_KG;
-        let aft_bulk = A320_CARGO_INFO[A320Cargo::AftBulkLoose].max_cargo_kg / 2.0 / LBS_TO_KG;
         let mut test_bed = test_bed_with()
             .init_vars_lbs()
             .target_half_pax()
-            .load_target_cargo(A320Cargo::FwdBaggage, fwd_baggage)
-            .load_target_cargo(A320Cargo::AftContainer, aft_container)
-            .load_target_cargo(A320Cargo::AftBaggage, aft_baggage)
-            .load_target_cargo(A320Cargo::AftBulkLoose, aft_bulk)
+            .target_half_cargo()
             .fast_board_rate()
             .start_boarding()
             .and_run()
             .and_stabilize();
 
-        let one_hour_in_seconds = 1 * SECONDS_TO_MINUTES * MINUTES_TO_HOURS;
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
+
+        test_bed.has_half_pax();
+        test_bed.has_half_cargo();
+    }
+
+    #[test]
+    fn target_half_pax_half_cargo_and_finish_board_instantly() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .target_half_pax()
+            .target_half_cargo()
+            .instant_board_rate()
+            .start_boarding()
+            .and_run();
+
+        test_bed.has_half_pax();
+        test_bed.has_half_cargo();
+    }
+
+    #[test]
+    fn start_half_pax_target_full_pax_fast_board() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_half_pax()
+            .load_half_cargo()
+            .target_full_pax()
+            .target_half_cargo()
+            .fast_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
+
+        test_bed.has_full_pax();
+        test_bed.has_half_cargo();
+    }
+
+    #[test]
+    fn start_half_cargo_target_full_cargo_real_board_lbs() {
+        let mut test_bed = test_bed_with()
+            .init_vars_lbs()
+            .with_half_pax()
+            .load_half_cargo()
+            .target_half_pax()
+            .target_full_cargo()
+            .real_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        let one_hour_in_seconds = 1 * HOURS_TO_MINUTES * MINUTES_TO_SECONDS;
 
         test_bed
             .test_bed
             .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
-
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
+        test_bed.has_half_pax();
+        test_bed.has_full_cargo();
     }
 
     #[test]
-    fn target_half_pax_half_cargo_and_finish_board_instantly() {
-        let pax_a = A320_PAX_INFO[A320Pax::A].max_pax / 2;
-        let pax_b = A320_PAX_INFO[A320Pax::B].max_pax / 2;
-        let pax_c = A320_PAX_INFO[A320Pax::C].max_pax / 2;
-        let pax_d = A320_PAX_INFO[A320Pax::D].max_pax / 2;
-        let fwd_baggage = A320_CARGO_INFO[A320Cargo::FwdBaggage].max_cargo_kg / 2.0;
-        let aft_container = A320_CARGO_INFO[A320Cargo::AftContainer].max_cargo_kg / 2.0;
-        let aft_baggage = A320_CARGO_INFO[A320Cargo::AftBaggage].max_cargo_kg / 2.0;
-        let aft_bulk = A320_CARGO_INFO[A320Cargo::AftBulkLoose].max_cargo_kg / 2.0;
-        let test_bed = test_bed_with()
+    fn start_half_target_full_instantly() {
+        let mut test_bed = test_bed_with()
             .init_vars_kg()
-            .target_half_pax()
-            .load_target_cargo(A320Cargo::FwdBaggage, fwd_baggage)
-            .load_target_cargo(A320Cargo::AftContainer, aft_container)
-            .load_target_cargo(A320Cargo::AftBaggage, aft_baggage)
-            .load_target_cargo(A320Cargo::AftBulkLoose, aft_bulk)
+            .with_half_pax()
+            .load_half_cargo()
+            .target_full_pax()
+            .target_full_cargo()
             .instant_board_rate()
             .start_boarding()
             .and_run();
 
-        assert_eq!(test_bed.pax_num(A320Pax::A), pax_a);
-        assert_eq!(test_bed.pax_num(A320Pax::B), pax_b);
-        assert_eq!(test_bed.pax_num(A320Pax::C), pax_c);
-        assert_eq!(test_bed.pax_num(A320Pax::D), pax_d);
-
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::FwdBaggage),
-            fwd_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftContainer),
-            aft_container
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBaggage),
-            aft_baggage
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo(A320Cargo::AftBulkLoose),
-            aft_bulk
-        ));
-
-        let pax_a_payload = pax_a as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_b_payload = pax_b as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_c_payload = pax_c as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-        let pax_d_payload = pax_d as f64 * DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::A),
-            pax_a_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::B),
-            pax_b_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::C),
-            pax_c_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.pax_payload(A320Pax::D),
-            pax_d_payload
-        ));
-
-        let fwd_baggage_payload = fwd_baggage / LBS_TO_KG;
-        let aft_container_payload = aft_container / LBS_TO_KG;
-        let aft_baggage_payload = aft_baggage / LBS_TO_KG;
-        let aft_bulk_payload = aft_bulk / LBS_TO_KG;
-
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::FwdBaggage),
-            fwd_baggage_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftContainer),
-            aft_container_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBaggage),
-            aft_baggage_payload
-        ));
-        assert!(relative_eq!(
-            test_bed.cargo_payload(A320Cargo::AftBulkLoose),
-            aft_bulk_payload
-        ));
+        test_bed.has_full_pax();
+        test_bed.has_full_cargo();
     }
 
-    // TODO: Deboard tests
-    /*
-    fn deboard_full_pax_full_cargo_instantly() {
-        loaded_half_pax();
+    #[test]
+    fn deboard_full_pax_full_cargo_idle_pending() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_full_pax()
+            .load_full_cargo()
+            .target_no_pax()
+            .target_no_cargo()
+            .fast_board_rate()
+            .and_run()
+            .and_stabilize();
+
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
+
+        test_bed.has_full_pax();
+        test_bed.has_full_cargo();
     }
-    */
+
+    #[test]
+    fn deboard_full_pax_full_cargo_fast() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_full_pax()
+            .load_full_cargo()
+            .target_no_pax()
+            .target_no_cargo()
+            .fast_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        let fifteen_minutes_in_seconds = 15 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(fifteen_minutes_in_seconds));
+
+        test_bed.has_no_pax();
+        test_bed.has_no_cargo();
+    }
+
+    #[test]
+    fn deboard_half_pax_full_cargo_lbs_instantly() {
+        let test_bed = test_bed_with()
+            .init_vars_lbs()
+            .with_half_pax()
+            .load_full_cargo()
+            .target_no_pax()
+            .target_no_cargo()
+            .instant_board_rate()
+            .start_boarding()
+            .and_run();
+
+        test_bed.has_no_pax();
+        test_bed.has_no_cargo();
+    }
+
+    #[test]
+    fn deboard_half_pax_half_cargo_real() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_half_pax()
+            .load_half_cargo()
+            .target_no_pax()
+            .target_no_cargo()
+            .real_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        let one_hour_in_seconds = 1 * HOURS_TO_MINUTES * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
+
+        test_bed.has_no_pax();
+        test_bed.has_no_cargo();
+    }
 
     // TODO: Sound tests
 }
