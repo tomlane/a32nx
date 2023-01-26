@@ -891,7 +891,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn loaded_half_pax_half_cargo_use_lbs() {
+    fn loaded_half_use_lbs() {
         let mut test_bed = test_bed_with()
             .init_vars_lbs()
             .with_half_pax()
@@ -903,7 +903,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn target_half_pax_half_cargo_pre_board() {
+    fn target_half_pre_board() {
         let test_bed = test_bed_with()
             .init_vars_kg()
             .target_half_pax()
@@ -962,7 +962,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn loaded_half_pax_half_cargo_idle_pending() {
+    fn loaded_half_idle_pending() {
         let mut test_bed = test_bed_with()
             .init_vars_kg()
             .with_half_pax()
@@ -980,7 +980,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn target_half_pax_half_cargo_and_complete_board() {
+    fn target_half_and_board() {
         let mut test_bed = test_bed_with()
             .init_vars_kg()
             .target_half_pax()
@@ -1001,7 +1001,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn target_half_pax_half_cargo_and_finish_board_use_lbs() {
+    fn target_half_and_board_lbs() {
         let mut test_bed = test_bed_with()
             .init_vars_lbs()
             .target_half_pax()
@@ -1022,7 +1022,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn target_half_pax_half_cargo_and_finish_board_instantly() {
+    fn target_half_and_board_instant() {
         let mut test_bed = test_bed_with()
             .init_vars_kg()
             .target_half_pax()
@@ -1159,7 +1159,7 @@ mod boarding_test {
     }
 
     #[test]
-    fn deboard_half_pax_half_cargo_real() {
+    fn deboard_half_real() {
         let mut test_bed = test_bed_with()
             .init_vars_kg()
             .with_half_pax()
@@ -1181,5 +1181,61 @@ mod boarding_test {
         test_bed.has_no_cargo();
     }
 
+    #[test]
+    fn deboard_half_five_min_change_to_board_full_real() {
+        let mut test_bed = test_bed_with()
+            .init_vars_kg()
+            .with_half_pax()
+            .load_half_cargo()
+            .target_no_pax()
+            .target_no_cargo()
+            .real_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        let five_minutes = 5 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(five_minutes));
+
+        test_bed = test_bed.target_full_pax().target_full_cargo();
+
+        let one_hour_in_seconds = 1 * HOURS_TO_MINUTES * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(one_hour_in_seconds));
+
+        test_bed.has_full_pax();
+        test_bed.has_full_cargo();
+    }
+
+    #[test]
+    fn deboard_half_two_min_change_instant_lbs() {
+        let mut test_bed = test_bed_with()
+            .init_vars_lbs()
+            .with_half_pax()
+            .load_half_cargo()
+            .target_no_pax()
+            .target_no_cargo()
+            .real_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        let five_minutes = 2 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(five_minutes));
+
+        test_bed = test_bed.instant_board_rate().and_run();
+        test_bed.has_no_pax();
+        test_bed.has_no_cargo();
+    }
+
     // TODO: Sound tests
+    // TODO: Set is board = false and test
 }
