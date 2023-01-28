@@ -1,7 +1,4 @@
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-};
+use std::{cell::Cell, rc::Rc};
 
 use crate::simulation::{
     Read, Reader, SimulationElement, SimulationElementVisitor, SimulatorReader, SimulatorWriter,
