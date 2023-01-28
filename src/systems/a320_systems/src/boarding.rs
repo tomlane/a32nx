@@ -1,7 +1,7 @@
 use enum_map::{Enum, EnumMap};
 use lazy_static::lazy_static;
 
-use std::time::Duration;
+use std::{cell::Cell, rc::Rc, time::Duration};
 
 use systems::{
     boarding::{BoardingRate, CargoSync, PaxSync},
@@ -224,9 +224,13 @@ pub struct A320Boarding {
     is_boarding_id: VariableIdentifier,
     is_gsx_enabled_id: VariableIdentifier,
     board_rate_id: VariableIdentifier,
+    per_pax_weight_id: VariableIdentifier,
+    is_unit_metric_id: VariableIdentifier,
     is_boarding: bool,
     is_gsx_enabled: bool,
     board_rate: BoardingRate,
+    per_pax_weight: Rc<Cell<f64>>,
+    is_unit_metric: Rc<Cell<bool>>,
     pax: Vec<PaxSync>,
     cargo: Vec<CargoSync>,
     boarding_sounds: A320BoardingSounds,
@@ -234,16 +238,16 @@ pub struct A320Boarding {
 }
 impl A320Boarding {
     pub fn new(context: &mut InitContext) -> Self {
-        let per_pax_weight_id = context.get_identifier("WB_PER_PAX_WEIGHT".to_owned());
-        let unit_convert_id = context.get_identifier("EFB_UNIT_CONVERSION_FACTOR".to_owned());
+        let per_pax_weight = Rc::new(Cell::new(0.0));
+        let is_unit_metric = Rc::new(Cell::new(true));
 
         let mut pax = Vec::new();
         for ps in A320Pax::iterator() {
             pax.push(PaxSync::new(
                 context.get_identifier(A320_PAX_INFO[ps].pax_id.to_owned()),
                 context.get_identifier(A320_PAX_INFO[ps].pax_target_id.to_owned()),
-                per_pax_weight_id,
-                unit_convert_id,
+                Rc::clone(&per_pax_weight),
+                Rc::clone(&is_unit_metric),
                 context.get_identifier(A320_PAX_INFO[ps].payload_id.to_owned()),
             ));
         }
@@ -253,7 +257,7 @@ impl A320Boarding {
             cargo.push(CargoSync::new(
                 context.get_identifier(A320_CARGO_INFO[cs].cargo_id.to_owned()),
                 context.get_identifier(A320_CARGO_INFO[cs].cargo_target_id.to_owned()),
-                unit_convert_id,
+                Rc::clone(&is_unit_metric),
                 context.get_identifier(A320_CARGO_INFO[cs].payload_id.to_owned()),
             ));
         }
@@ -261,9 +265,13 @@ impl A320Boarding {
             is_boarding_id: context.get_identifier("BOARDING_STARTED_BY_USR".to_owned()),
             is_gsx_enabled_id: context.get_identifier("GSX_PAYLOAD_SYNC_ENABLED".to_owned()),
             board_rate_id: context.get_identifier("BOARDING_RATE".to_owned()),
+            per_pax_weight_id: context.get_identifier("WB_PER_PAX_WEIGHT".to_owned()),
+            is_unit_metric_id: context.get_identifier("EFB_USING_METRIC_UNIT".to_owned()),
             is_boarding: false,
             is_gsx_enabled: false,
             board_rate: BoardingRate::Instant,
+            per_pax_weight,
+            is_unit_metric,
             boarding_sounds: A320BoardingSounds::new(
                 context.get_identifier("SOUND_PAX_BOARDING".to_owned()),
                 context.get_identifier("SOUND_PAX_DEBOARDING".to_owned()),
@@ -277,6 +285,17 @@ impl A320Boarding {
     }
 
     pub(crate) fn update(&mut self, context: &UpdateContext) {
+        // TODO: port airplaneCanBoard from js? Do we want these restrictions?
+
+        /*
+        const busDC2 = SimVar.GetSimVarValue("L:A32NX_ELEC_DC_2_BUS_IS_POWERED", "Bool");
+        const busDCHot1 = SimVar.GetSimVarValue("L:A32NX_ELEC_DC_HOT_1_BUS_IS_POWERED", "Bool");
+        const gs = SimVar.GetSimVarValue("GPS GROUND SPEED", "knots");
+        const isOnGround = SimVar.GetSimVarValue("SIM ON GROUND", "Bool");
+        const eng1Running = SimVar.GetSimVarValue("ENG COMBUSTION:1", "Bool");
+        const eng2Running = SimVar.GetSimVarValue("ENG COMBUSTION:2", "Bool");
+         */
+
         if self.is_gsx_enabled() {
             self.stop_boarding();
             self.stop_all_sounds();
@@ -557,6 +576,14 @@ impl A320Boarding {
     fn stop_boarding(&mut self) {
         self.is_boarding = false;
     }
+
+    fn per_pax_weight(&self) -> f64 {
+        self.per_pax_weight.get()
+    }
+
+    fn is_unit_metric(&self) -> bool {
+        self.is_unit_metric.get()
+    }
 }
 impl SimulationElement for A320Boarding {
     fn accept<T: SimulationElementVisitor>(&mut self, visitor: &mut T) {
@@ -575,10 +602,16 @@ impl SimulationElement for A320Boarding {
         self.is_boarding = reader.read(&self.is_boarding_id);
         self.board_rate = reader.read(&self.board_rate_id);
         self.is_gsx_enabled = reader.read(&self.is_gsx_enabled_id);
+        self.per_pax_weight
+            .replace(reader.read(&self.per_pax_weight_id));
+        self.is_unit_metric
+            .replace(reader.read(&self.is_unit_metric_id));
     }
 
     fn write(&self, writer: &mut SimulatorWriter) {
         writer.write(&self.is_boarding_id, self.is_boarding);
+        writer.write(&self.per_pax_weight_id, self.per_pax_weight());
+        writer.write(&self.is_unit_metric_id, self.is_unit_metric());
     }
 }
 
@@ -656,9 +689,18 @@ mod boarding_test {
             self
         }
 
+        fn unit_convert(&mut self) -> f64 {
+            let is_metric: bool = self.read_by_name("EFB_USING_METRIC_UNIT");
+            if is_metric == true {
+                LBS_TO_KG
+            } else {
+                1.0
+            }
+        }
+
         fn init_vars_kg(mut self) -> Self {
             self.write_by_name("BOARDING_RATE", BoardingRate::Instant);
-            self.write_by_name("EFB_UNIT_CONVERSION_FACTOR", LBS_TO_KG);
+            self.write_by_name("EFB_USING_METRIC_UNIT", true);
             self.write_by_name("WB_PER_PAX_WEIGHT", DEFAULT_PER_PAX_WEIGHT_KG);
 
             self
@@ -672,7 +714,7 @@ mod boarding_test {
 
         fn init_vars_lbs(mut self) -> Self {
             self.write_by_name("BOARDING_RATE", BoardingRate::Instant);
-            self.write_by_name("EFB_UNIT_CONVERSION_FACTOR", 1);
+            self.write_by_name("EFB_USING_METRIC_UNIT", false);
             self.write_by_name("WB_PER_PAX_WEIGHT", DEFAULT_PER_PAX_WEIGHT_KG / LBS_TO_KG);
 
             self
@@ -699,7 +741,6 @@ mod boarding_test {
         fn load_pax(&mut self, ps: A320Pax, pax_qty: i8) {
             assert!(pax_qty <= A320_PAX_INFO[ps].max_pax);
 
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
             let per_pax_weight: f64 = self.read_by_name("WB_PER_PAX_WEIGHT");
 
             let seed = 380320;
@@ -715,7 +756,7 @@ mod boarding_test {
                 pax_flag ^= 1 << c;
             }
 
-            let payload = pax_qty as f64 * per_pax_weight / unit_convert;
+            let payload = pax_qty as f64 * per_pax_weight / self.unit_convert();
 
             self.write_by_name(&A320_PAX_INFO[ps].pax_id, pax_flag);
             self.write_by_name(&A320_PAX_INFO[ps].payload_id, payload);
@@ -741,20 +782,20 @@ mod boarding_test {
         }
 
         fn load_cargo(&mut self, cs: A320Cargo, cargo_qty: f64) {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            assert!(
+                cargo_qty <= A320_CARGO_INFO[cs].max_cargo_kg * self.unit_convert() / LBS_TO_KG
+            );
 
-            assert!(cargo_qty <= A320_CARGO_INFO[cs].max_cargo_kg * unit_convert / LBS_TO_KG);
-
-            let payload = cargo_qty / unit_convert;
+            let payload = cargo_qty / self.unit_convert();
 
             self.write_by_name(&A320_CARGO_INFO[cs].cargo_id, cargo_qty);
             self.write_by_name(&A320_CARGO_INFO[cs].payload_id, payload);
         }
 
         fn target_cargo(&mut self, cs: A320Cargo, cargo_qty: f64) {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
-
-            assert!(cargo_qty <= A320_CARGO_INFO[cs].max_cargo_kg * unit_convert / LBS_TO_KG);
+            assert!(
+                cargo_qty <= A320_CARGO_INFO[cs].max_cargo_kg * self.unit_convert() / LBS_TO_KG
+            );
 
             self.write_by_name(&A320_CARGO_INFO[cs].cargo_target_id, cargo_qty);
         }
@@ -896,7 +937,7 @@ mod boarding_test {
         }
 
         fn load_half_cargo(mut self) -> Self {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            let unit_convert = self.unit_convert();
 
             for cs in A320Cargo::iterator() {
                 self.load_cargo(
@@ -908,7 +949,7 @@ mod boarding_test {
         }
 
         fn load_full_cargo(mut self) -> Self {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            let unit_convert = self.unit_convert();
 
             for cs in A320Cargo::iterator() {
                 self.load_cargo(
@@ -929,7 +970,7 @@ mod boarding_test {
         }
 
         fn has_half_cargo(&mut self) {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            let unit_convert = self.unit_convert();
 
             for cs in A320Cargo::iterator() {
                 let cargo = A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG) / 2.0;
@@ -940,7 +981,7 @@ mod boarding_test {
         }
 
         fn has_full_cargo(&mut self) {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            let unit_convert = self.unit_convert();
 
             for cs in A320Cargo::iterator() {
                 let cargo = A320_CARGO_INFO[cs].max_cargo_kg / (unit_convert / LBS_TO_KG);
@@ -958,7 +999,7 @@ mod boarding_test {
         }
 
         fn target_half_cargo(mut self) -> Self {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            let unit_convert = self.unit_convert();
 
             for cs in A320Cargo::iterator() {
                 self.target_cargo(
@@ -970,7 +1011,7 @@ mod boarding_test {
         }
 
         fn target_full_cargo(mut self) -> Self {
-            let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
+            let unit_convert = self.unit_convert();
 
             for cs in A320Cargo::iterator() {
                 self.target_cargo(
@@ -1059,7 +1100,7 @@ mod boarding_test {
 
         assert!(test_bed.contains_variable_with_name("BOARDING_STARTED_BY_USR"));
         assert!(test_bed.contains_variable_with_name("BOARDING_RATE"));
-        assert!(test_bed.contains_variable_with_name("EFB_UNIT_CONVERSION_FACTOR"));
+        assert!(test_bed.contains_variable_with_name("EFB_USING_METRIC_UNIT"));
         assert!(test_bed.contains_variable_with_name("WB_PER_PAX_WEIGHT"));
         assert!(test_bed.contains_variable_with_name(&A320_PAX_INFO[A320Pax::A].pax_id));
         assert!(test_bed.contains_variable_with_name(&A320_PAX_INFO[A320Pax::B].pax_id));

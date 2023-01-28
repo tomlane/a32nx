@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 // TODO: Deprecate, move boarding backend to WASM
+/*
 function airplaneCanBoard() {
     const busDC2 = SimVar.GetSimVarValue("L:A32NX_ELEC_DC_2_BUS_IS_POWERED", "Bool");
     const busDCHot1 = SimVar.GetSimVarValue("L:A32NX_ELEC_DC_HOT_1_BUS_IS_POWERED", "Bool");
@@ -10,14 +11,13 @@ function airplaneCanBoard() {
 
     return !(gs > 0.1 || eng1Running || eng2Running || !isOnGround || (!busDC2 && !busDCHot1));
 }
+*/
 
-function setDefaultWeights(simbriefPaxWeight, simbriefBagWeight) {
-    const perPaxWeight = (simbriefPaxWeight === undefined) ? Math.round(NXUnits.kgToUser(84)) : simbriefPaxWeight;
-    const perBagWeight = (simbriefBagWeight === undefined) ? Math.round(NXUnits.kgToUser(20)) : simbriefBagWeight;
-    const conversionFactor = (getUserUnit() == "Kilograms") ? 0.4535934 : 1;
+function setDefaultWeights() {
+    const perPaxWeight = Math.round(NXUnits.kgToUser(84));
+    const perBagWeight = Math.round(NXUnits.kgToUser(20));
     SimVar.SetSimVarValue("L:A32NX_WB_PER_PAX_WEIGHT", "Number", parseInt(perPaxWeight));
     SimVar.SetSimVarValue("L:A32NX_WB_PER_BAG_WEIGHT", "Number", parseInt(perBagWeight));
-    SimVar.SetSimVarValue("L:A32NX_EFB_UNIT_CONVERSION_FACTOR", "Number", conversionFactor);
 }
 
 class A32NX_Boarding {
@@ -45,10 +45,10 @@ class A32NX_Boarding {
 
     async init() {
         setDefaultWeights();
-        this.updateStationVars();
-        this.loadPaxPayload();
-        this.loadCargoZero();
-        this.loadCargoPayload();
+        // this.updateStationVars();
+        // this.loadPaxPayload();
+        // this.loadCargoZero();
+        // this.loadCargoPayload();
     }
 
     // Shuffle passengers within same section
@@ -359,30 +359,6 @@ class A32NX_Boarding {
             this.loadPaxPayload();
             this.loadCargoPayload();
 
-        } else {
-            /*
-            const boardingStartedByUser = SimVar.GetSimVarValue("L:A32NX_BOARDING_STARTED_BY_USR", "Bool");
-            const boardingRate = NXDataStore.get("CONFIG_BOARDING_RATE", 'REAL');
-
-            if (!boardingStartedByUser) {
-                return;
-            }
-
-            if ((!airplaneCanBoard() && boardingRate == 'REAL') || (!airplaneCanBoard() && boardingRate == 'FAST')) {
-                return;
-            }
-
-            const [
-                currentPax, paxTarget, isAllPaxStationFilled,
-                currentLoad, loadTarget, isAllCargoStationFilled
-            ] = await this.updateStationVars();
-
-            await this.manageSoundControllers(currentPax, paxTarget, boardingStartedByUser);
-
-            await this.manageBoardingState(currentPax, paxTarget, isAllPaxStationFilled, currentLoad, loadTarget, isAllCargoStationFilled);
-
-            this.manageBoarding(boardingRate);
-            */
         }
     }
 }

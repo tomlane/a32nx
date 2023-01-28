@@ -39,6 +39,7 @@ const settingsToSync: Map<string, SimVar> = new Map([
     ['CONFIG_PILOT_AVATAR_VISIBLE', ['L:A32NX_PILOT_AVATAR_VISIBLE_0', 'bool', '0']],
     ['CONFIG_FIRST_OFFICER_AVATAR_VISIBLE', ['L:A32NX_PILOT_AVATAR_VISIBLE_1', 'bool', '0']],
     ['GSX_PAYLOAD_SYNC', ['L:A32NX_GSX_PAYLOAD_SYNC_ENABLED', 'bool', '0']],
+    ['CONFIG_USING_METRIC_UNIT', ['L:A32NX_EFB_USING_METRIC_UNIT', 'bool', '1']],
 ]);
 
 const settingEnumToSync: Map<string, SimVarEnum> = new Map([

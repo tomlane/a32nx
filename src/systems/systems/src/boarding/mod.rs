@@ -1,3 +1,8 @@
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
 use crate::simulation::{
     Read, Reader, SimulationElement, SimulationElementVisitor, SimulatorReader, SimulatorWriter,
     VariableIdentifier, Write, Writer,
@@ -5,16 +10,15 @@ use crate::simulation::{
 use approx::relative_eq;
 use rand::Rng;
 
+const LBS_TO_KG: f64 = 0.4535934;
+
 #[derive(Debug)]
 pub struct PaxSync {
     pax_id: VariableIdentifier,
     pax_target_id: VariableIdentifier,
-    per_pax_weight_id: VariableIdentifier,
-    unit_convert_id: VariableIdentifier,
+    per_pax_weight: Rc<Cell<f64>>,
+    is_unit_metric: Rc<Cell<bool>>,
     payload_id: VariableIdentifier,
-
-    per_pax_weight: f64,
-    unit_convert: f64,
     pax_target: u64,
     pax: u64,
     payload: f64,
@@ -23,21 +27,35 @@ impl PaxSync {
     pub fn new(
         pax_id: VariableIdentifier,
         pax_target_id: VariableIdentifier,
-        per_pax_weight_id: VariableIdentifier,
-        unit_convert_id: VariableIdentifier,
+        per_pax_weight: Rc<Cell<f64>>,
+        is_unit_metric: Rc<Cell<bool>>,
         payload_id: VariableIdentifier,
     ) -> Self {
         PaxSync {
             pax_id,
             pax_target_id,
-            per_pax_weight_id,
-            unit_convert_id,
+            per_pax_weight,
+            is_unit_metric,
             payload_id,
-            per_pax_weight: 0.0,
-            unit_convert: 0.0,
             pax_target: 0,
             pax: 0,
             payload: 0.0,
+        }
+    }
+
+    fn per_pax_weight(&self) -> f64 {
+        self.per_pax_weight.get()
+    }
+
+    fn is_unit_metric(&self) -> bool {
+        self.is_unit_metric.get()
+    }
+
+    fn unit_convert(&self) -> f64 {
+        if self.is_unit_metric() {
+            LBS_TO_KG
+        } else {
+            1.0
         }
     }
 
@@ -46,7 +64,7 @@ impl PaxSync {
     }
 
     pub fn payload_is_sync(&self) -> bool {
-        self.pax_num() as f64 * self.per_pax_weight / self.unit_convert == self.payload
+        self.pax_num() as f64 * self.per_pax_weight() / self.unit_convert() == self.payload
     }
 
     pub fn pax(&self) -> u64 {
@@ -66,7 +84,7 @@ impl PaxSync {
     }
 
     pub fn load_payload(&mut self) {
-        self.payload = self.pax_num() as f64 * self.per_pax_weight / self.unit_convert;
+        self.payload = self.pax_num() as f64 * self.per_pax_weight() / self.unit_convert();
     }
 
     pub fn move_all_pax(&mut self) {
@@ -104,8 +122,6 @@ impl SimulationElement for PaxSync {
     fn read(&mut self, reader: &mut SimulatorReader) {
         self.pax = reader.read(&self.pax_id);
         self.pax_target = reader.read(&self.pax_target_id);
-        self.per_pax_weight = reader.read(&self.per_pax_weight_id);
-        self.unit_convert = reader.read(&self.unit_convert_id);
         self.payload = reader.read(&self.payload_id);
     }
     fn write(&self, writer: &mut SimulatorWriter) {
@@ -119,28 +135,26 @@ pub struct CargoSync {
     cargo_target_id: VariableIdentifier,
     cargo_id: VariableIdentifier,
     payload_id: VariableIdentifier,
-    unit_convert_id: VariableIdentifier,
+    is_unit_metric: Rc<Cell<bool>>,
     cargo: f64,
     cargo_target: f64,
     payload: f64,
-    unit_convert: f64,
 }
 impl CargoSync {
     pub fn new(
         cargo_id: VariableIdentifier,
         cargo_target_id: VariableIdentifier,
-        unit_convert_id: VariableIdentifier,
+        is_unit_metric: Rc<Cell<bool>>,
         payload_id: VariableIdentifier,
     ) -> Self {
         CargoSync {
             cargo_id,
             cargo_target_id,
-            unit_convert_id,
+            is_unit_metric,
             payload_id,
             cargo: 0.0,
             cargo_target: 0.0,
             payload: 0.0,
-            unit_convert: 0.0,
         }
     }
 
@@ -152,8 +166,16 @@ impl CargoSync {
         self.payload
     }
 
-    pub fn unit_convert(&self) -> f64 {
-        self.unit_convert
+    fn is_unit_metric(&self) -> bool {
+        self.is_unit_metric.get()
+    }
+
+    fn unit_convert(&self) -> f64 {
+        if self.is_unit_metric() {
+            LBS_TO_KG
+        } else {
+            1.0
+        }
     }
 
     pub fn cargo_is_target(&self) -> bool {
@@ -161,11 +183,11 @@ impl CargoSync {
     }
 
     pub fn payload_is_sync(&self) -> bool {
-        relative_eq!(self.cargo, self.payload * self.unit_convert)
+        relative_eq!(self.cargo, self.payload * self.unit_convert())
     }
 
     pub fn load_payload(&mut self) {
-        self.payload = self.cargo / self.unit_convert;
+        self.payload = self.cargo / self.unit_convert();
     }
 
     pub fn move_all_cargo(&mut self) {
@@ -192,7 +214,6 @@ impl SimulationElement for CargoSync {
     fn read(&mut self, reader: &mut SimulatorReader) {
         self.cargo = reader.read(&self.cargo_id);
         self.cargo_target = reader.read(&self.cargo_target_id);
-        self.unit_convert = reader.read(&self.unit_convert_id);
         self.payload = reader.read(&self.payload_id);
     }
     fn write(&self, writer: &mut SimulatorWriter) {
