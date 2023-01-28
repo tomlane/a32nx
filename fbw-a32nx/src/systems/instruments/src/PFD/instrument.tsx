@@ -226,13 +226,6 @@ class A32NX_PFD extends BaseInstrument {
         this.simVarPublisher.subscribe('trueTrackRaw');
         this.simVarPublisher.subscribe('slatPosLeft');
 
-<<<<<<< HEAD:fbw-a32nx/src/systems/instruments/src/PFD/instrument.tsx
-=======
-        this.simVarPublisher.subscribe('fwc1AltAlertPulsing');
-        this.simVarPublisher.subscribe('fwc2AltAlertPulsing');
-        this.simVarPublisher.subscribe('fwc1AltAlertFlashing');
-        this.simVarPublisher.subscribe('fwc2AltAlertFlashing');
-
         this.simVarPublisher.subscribe('linearDeviationActive');
         this.simVarPublisher.subscribe('verticalProfileLatched');
         this.simVarPublisher.subscribe('targetAltitude');
@@ -240,7 +233,6 @@ class A32NX_PFD extends BaseInstrument {
         this.simVarPublisher.subscribe('upperSpeedMargin');
         this.simVarPublisher.subscribe('lowerSpeedMargin');
 
->>>>>>> 25ccc402d8 (feat: vertical navigation v1 #7080 (@930841d)):src/instruments/src/PFD/instrument.tsx
         FSComponent.render(<PFDComponent bus={this.bus} instrument={this} />, document.getElementById('PFD_CONTENT'));
     }
 
