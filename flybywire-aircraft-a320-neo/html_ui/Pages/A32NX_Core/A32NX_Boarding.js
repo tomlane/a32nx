@@ -18,9 +18,6 @@ function setDefaultWeights(simbriefPaxWeight, simbriefBagWeight) {
     SimVar.SetSimVarValue("L:A32NX_WB_PER_PAX_WEIGHT", "Number", parseInt(perPaxWeight));
     SimVar.SetSimVarValue("L:A32NX_WB_PER_BAG_WEIGHT", "Number", parseInt(perBagWeight));
     SimVar.SetSimVarValue("L:A32NX_EFB_UNIT_CONVERSION_FACTOR", "Number", conversionFactor);
-
-    SimVar.SetSimVarValue("L:A32NX_GSX_SYNC_ENABLED", "bool", false);
-    SimVar.SetSimVarValue("L:A32NX_BOARDING_RATE", "Number", 2);
 }
 
 class A32NX_Boarding {
@@ -351,23 +348,8 @@ class A32NX_Boarding {
         this.time += _deltaTime;
 
         const gsxPayloadSyncEnabled = NXDataStore.get("GSX_PAYLOAD_SYNC", 0);
-
-        SimVar.SetSimVarValue("L:A32NX_GSX_SYNC_ENABLED", "bool", false);
-        const boardingRate = NXDataStore.get("CONFIG_BOARDING_RATE", 'REAL');
-        switch (boardingRate) {
-            case 'REAL':
-                SimVar.SetSimVarValue("L:A32NX_BOARDING_RATE", "Number", 2);
-                break;
-            case 'FAST':
-                SimVar.SetSimVarValue("L:A32NX_BOARDING_RATE", "Number", 1);
-                break;
-            case 'INSTANT':
-                SimVar.SetSimVarValue("L:A32NX_BOARDING_RATE", "Number", 0);
-                break;
-        }
-
         if (gsxPayloadSyncEnabled === '1') {
-            SimVar.SetSimVarValue("L:A32NX_GSX_SYNC_ENABLED", "bool", true);
+            SimVar.SetSimVarValue("L:A32NX_GSX_PAYLOAD_SYNC_ENABLED", "bool", true);
             const gsxBoardState = Math.round(SimVar.GetSimVarValue("L:FSDT_GSX_BOARDING_STATE", "Number"));
             const gsxDeBoardState = Math.round(SimVar.GetSimVarValue("L:FSDT_GSX_DEBOARDING_STATE", "Number"));
 
@@ -378,7 +360,6 @@ class A32NX_Boarding {
             this.loadCargoPayload();
 
         } else {
-            SimVar.SetSimVarValue("L:A32NX_GSX_SYNC_ENABLED", "bool", false);
             /*
             const boardingStartedByUser = SimVar.GetSimVarValue("L:A32NX_BOARDING_STARTED_BY_USR", "Bool");
             const boardingRate = NXDataStore.get("CONFIG_BOARDING_RATE", 'REAL');

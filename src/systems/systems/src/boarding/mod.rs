@@ -3,11 +3,12 @@ use crate::simulation::{
     VariableIdentifier, Write, Writer,
 };
 use approx::relative_eq;
+use rand::Rng;
 
 #[derive(Debug)]
 pub struct PaxSync {
-    pax_target_id: VariableIdentifier,
     pax_id: VariableIdentifier,
+    pax_target_id: VariableIdentifier,
     per_pax_weight_id: VariableIdentifier,
     unit_convert_id: VariableIdentifier,
     payload_id: VariableIdentifier,
@@ -76,31 +77,24 @@ impl PaxSync {
     pub fn move_one_pax(&mut self) {
         let pax_diff = self.pax_target_num() - self.pax_num();
 
-        if pax_diff > 0 {
-            // Union of empty active and filled desired
-            // XOR to add right most bit
-            let n = !self.pax & self.pax_target;
-            if n > 0 {
-                let mask = n ^ (n & (n - 1));
-                self.pax ^= mask;
-            }
-        } else if pax_diff < 0 {
-            // Union of filled active and empty desired
-            // Remove right most bit
-            let n = self.pax & !self.pax_target;
-            if n > 0 {
-                self.pax = n & (n - 1);
-            }
-
-            // let n = self.pax.reverse_bits() & !self.pax_target.reverse_bits();
-            // self.pax = (n & (n - 1)).reverse_bits();
+        let n: u64 = if pax_diff > 0 {
+            !self.pax & self.pax_target
         } else {
-            // Union of filled active and empty desired
-            // XOR to disable right most bit
-            let n = self.pax & !self.pax_target;
-            if n > 0 {
-                let mask = n ^ (n & (n - 1));
-                self.pax ^= mask;
+            self.pax & !self.pax_target
+        };
+        let count = n.count_ones() as i8;
+        if count > 0 {
+            let mut skip: i8 = rand::thread_rng().gen_range(0..count);
+
+            for i in 0..53 {
+                let mask = 1 << i;
+                if (n & mask) > 0 {
+                    if skip <= 0 {
+                        self.pax ^= mask;
+                        break;
+                    }
+                    skip -= 1;
+                }
             }
         }
         self.load_payload();
@@ -117,7 +111,6 @@ impl SimulationElement for PaxSync {
     fn write(&self, writer: &mut SimulatorWriter) {
         writer.write(&self.pax_id, self.pax);
         writer.write(&self.payload_id, self.payload);
-        // writer.write(&self.pax_target_id, self.pax_target);
     }
 }
 
@@ -181,12 +174,13 @@ impl CargoSync {
     }
 
     pub fn move_one_cargo(&mut self) {
+        let max_move = 60.0;
         let cargo_delta = f64::abs(self.cargo_target - self.cargo);
 
         if self.cargo < self.cargo_target {
-            self.cargo += f64::min(cargo_delta, 60.0);
+            self.cargo += f64::min(cargo_delta, max_move);
         } else if self.cargo > self.cargo_target {
-            self.cargo -= f64::min(cargo_delta, 60.0);
+            self.cargo -= f64::min(cargo_delta, max_move);
         }
         self.load_payload();
     }
@@ -204,7 +198,6 @@ impl SimulationElement for CargoSync {
     fn write(&self, writer: &mut SimulatorWriter) {
         writer.write(&self.cargo_id, self.cargo);
         writer.write(&self.payload_id, self.payload);
-        // writer.write(&self.cargo_target_id, self.cargo_target);
     }
 }
 

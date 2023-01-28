@@ -89,25 +89,25 @@ lazy_static! {
             36,
             "PAX_FLAGS_A",
             "PAX_FLAGS_A_DESIRED",
-            "PAYLOAD STATION WEIGHT:1",
+            "PAYLOAD_STATION_1_REQ",
         ),
         PaxInfo::new(
             42,
             "PAX_FLAGS_B",
             "PAX_FLAGS_B_DESIRED",
-            "PAYLOAD STATION WEIGHT:2",
+            "PAYLOAD_STATION_2_REQ",
         ),
         PaxInfo::new(
             48,
             "PAX_FLAGS_C",
             "PAX_FLAGS_C_DESIRED",
-            "PAYLOAD STATION WEIGHT:3",
+            "PAYLOAD_STATION_3_REQ",
         ),
         PaxInfo::new(
             48,
             "PAX_FLAGS_D",
             "PAX_FLAGS_D_DESIRED",
-            "PAYLOAD STATION WEIGHT:4",
+            "PAYLOAD_STATION_4_REQ",
         )
     ]);
     static ref A320_CARGO_INFO: EnumMap<A320Cargo, CargoInfo> = EnumMap::from_array([
@@ -115,25 +115,25 @@ lazy_static! {
             3402.0,
             "CARGO_FWD_BAGGAGE_CONTAINER",
             "CARGO_FWD_BAGGAGE_CONTAINER_DESIRED",
-            "PAYLOAD STATION WEIGHT:5",
+            "PAYLOAD_STATION_5_REQ",
         ),
         CargoInfo::new(
             2426.0,
             "CARGO_AFT_CONTAINER",
             "CARGO_AFT_CONTAINER_DESIRED",
-            "PAYLOAD STATION WEIGHT:6",
+            "PAYLOAD_STATION_6_REQ",
         ),
         CargoInfo::new(
             2110.0,
             "CARGO_AFT_BAGGAGE",
             "CARGO_AFT_BAGGAGE_DESIRED",
-            "PAYLOAD STATION WEIGHT:7",
+            "PAYLOAD_STATION_7_REQ",
         ),
         CargoInfo::new(
             1497.0,
             "CARGO_AFT_BULK_LOOSE",
             "CARGO_AFT_BULK_LOOSE_DESIRED",
-            "PAYLOAD STATION WEIGHT:8",
+            "PAYLOAD_STATION_8_REQ",
         )
     ]);
 }
@@ -259,7 +259,7 @@ impl A320Boarding {
         }
         A320Boarding {
             is_boarding_id: context.get_identifier("BOARDING_STARTED_BY_USR".to_owned()),
-            is_gsx_enabled_id: context.get_identifier("GSX_SYNC_ENABLED".to_owned()),
+            is_gsx_enabled_id: context.get_identifier("GSX_PAYLOAD_SYNC_ENABLED".to_owned()),
             board_rate_id: context.get_identifier("BOARDING_RATE".to_owned()),
             is_boarding: false,
             is_gsx_enabled: false,
@@ -276,11 +276,10 @@ impl A320Boarding {
         }
     }
 
-    // TODO: Split into functions
-    // TODO: Sounds
     pub(crate) fn update(&mut self, context: &UpdateContext) {
         if self.is_gsx_enabled() {
             self.stop_boarding();
+            self.stop_all_sounds();
             self.update_extern_gsx(context);
             return;
         } else {
@@ -289,7 +288,7 @@ impl A320Boarding {
     }
 
     fn update_extern_gsx(&mut self, _context: &UpdateContext) {
-        // TODO: GSX
+        // TODO: GSX integration in rust
     }
 
     fn update_intern(&mut self, context: &UpdateContext) {
@@ -297,7 +296,7 @@ impl A320Boarding {
 
         if !self.is_boarding {
             self.time = Duration::from_nanos(0);
-            self.play_sound_pax_complete(false);
+            self.stop_boarding_sounds();
             return;
         }
 
@@ -375,6 +374,19 @@ impl A320Boarding {
         }
     }
 
+    fn stop_boarding_sounds(&mut self) {
+        self.boarding_sounds.stop_pax_boarding();
+        self.boarding_sounds.stop_pax_deboarding();
+        self.boarding_sounds.stop_pax_complete();
+    }
+
+    fn stop_all_sounds(&mut self) {
+        self.boarding_sounds.stop_pax_boarding();
+        self.boarding_sounds.stop_pax_deboarding();
+        self.boarding_sounds.stop_pax_ambience();
+        self.boarding_sounds.stop_pax_complete();
+    }
+
     #[allow(dead_code)]
     fn sound_pax_ambience(&self) -> bool {
         self.boarding_sounds.pax_ambience()
@@ -422,29 +434,6 @@ impl A320Boarding {
             }
         }
     }
-
-    // TODO: Remove
-    /*
-    fn sync_payload(&mut self) {
-        for ps in 0..self.pax.len() {
-            if self.pax_payload_is_sync(ps) {
-                continue;
-            } else {
-                // TODO FIXME: Remove debug
-                println!("Pax payload was not in sync for {}", ps);
-                self.load_pax_payload(ps);
-            }
-        }
-        for cs in 0..self.cargo.len() {
-            if self.cargo_payload_is_sync(cs) {
-                continue;
-            } else {
-                // TODO FIXME: Remove debug
-                println!("Cargo payload was not in sync for {}", cs);
-                self.load_cargo_payload(cs);
-            }
-        }
-    } */
 
     fn is_pax_boarding(&mut self) -> bool {
         for ps in 0..self.pax.len() {
@@ -535,12 +524,6 @@ impl A320Boarding {
         self.pax[ps].move_one_pax();
     }
 
-    // TODO: Remove
-    /*
-    fn load_pax_payload(&mut self, ps: usize) {
-        self.pax[ps].load_payload();
-    }
-    */
     #[allow(dead_code)]
     fn cargo(&self, cs: usize) -> f64 {
         self.cargo[cs].cargo()
@@ -555,13 +538,6 @@ impl A320Boarding {
         self.cargo[cs].cargo_is_target()
     }
 
-    // TODO: Remove
-    /*
-    fn cargo_payload_is_sync(&mut self, cs: usize) -> bool {
-        self.cargo[cs].payload_is_sync()
-    }
-    */
-
     fn move_all_cargo(&mut self, cs: usize) {
         self.cargo[cs].move_all_cargo();
     }
@@ -569,13 +545,6 @@ impl A320Boarding {
     fn move_one_cargo(&mut self, cs: usize) {
         self.cargo[cs].move_one_cargo();
     }
-
-    // TODO: Remove
-    /*
-    fn load_cargo_payload(&mut self, cs: usize) {
-        self.cargo[cs].load_payload();
-    }
-    */
 
     fn is_boarding(&self) -> bool {
         self.is_boarding
@@ -585,20 +554,12 @@ impl A320Boarding {
         self.is_gsx_enabled
     }
 
-    /*
-    fn start_boarding(&mut self) {
-        self.is_boarding = true;
-    }
-    */
-
     fn stop_boarding(&mut self) {
         self.is_boarding = false;
     }
 }
 impl SimulationElement for A320Boarding {
     fn accept<T: SimulationElementVisitor>(&mut self, visitor: &mut T) {
-        // TODO: Disable if performance is bad
-        // if self.is_boarding {
         for ps in 0..self.pax.len() {
             self.pax[ps].accept(visitor);
         }
@@ -606,7 +567,6 @@ impl SimulationElement for A320Boarding {
             self.cargo[cs].accept(visitor);
         }
         self.boarding_sounds.accept(visitor);
-        // }
 
         visitor.visit(self);
     }
@@ -705,7 +665,7 @@ mod boarding_test {
         }
 
         fn init_vars_gsx(mut self) -> Self {
-            self.write_by_name("GSX_SYNC_ENABLED", true);
+            self.write_by_name("GSX_PAYLOAD_SYNC_ENABLED", true);
 
             self
         }
@@ -761,14 +721,6 @@ mod boarding_test {
             self.write_by_name(&A320_PAX_INFO[ps].payload_id, payload);
         }
 
-        // TODO: Write tests using this function
-        /*
-        fn with_pax(mut self, ps: A320Pax, pax_qty: i8) -> Self {
-            self.load_pax(ps, pax_qty);
-            self
-        }
-        */
-
         fn target_pax(&mut self, ps: A320Pax, pax_qty: i8) {
             assert!(pax_qty <= A320_PAX_INFO[ps].max_pax);
 
@@ -787,14 +739,6 @@ mod boarding_test {
 
             self.write_by_name(&A320_PAX_INFO[ps].pax_target_id, pax_flag);
         }
-
-        // TODO: Write tests using this function
-        /*
-        fn with_pax_target(mut self, ps: A320Pax, pax_qty: i8) -> Self {
-            self.target_pax(ps, pax_qty);
-            self
-        }
-        */
 
         fn load_cargo(&mut self, cs: A320Cargo, cargo_qty: f64) {
             let unit_convert: f64 = self.read_by_name("EFB_UNIT_CONVERSION_FACTOR");
@@ -820,13 +764,10 @@ mod boarding_test {
             self
         }
 
-        // TODO: Write tests using this function
-        /*
         fn stop_boarding(mut self) -> Self {
             self.write_by_name("BOARDING_STARTED_BY_USR", false);
             self
         }
-        */
 
         fn boarding_started(&mut self) {
             let is_boarding = self.is_boarding();
@@ -875,6 +816,11 @@ mod boarding_test {
             assert_eq!(pax_ambience, false);
         }
 
+        fn with_pax(mut self, ps: A320Pax, pax_qty: i8) -> Self {
+            self.load_pax(ps, pax_qty);
+            self
+        }
+
         fn with_no_pax(mut self) -> Self {
             for ps in A320Pax::iterator() {
                 self.load_pax(ps, 0);
@@ -893,6 +839,11 @@ mod boarding_test {
             for ps in A320Pax::iterator() {
                 self.load_pax(ps, A320_PAX_INFO[ps].max_pax);
             }
+            self
+        }
+
+        fn with_pax_target(mut self, ps: A320Pax, pax_qty: i8) -> Self {
+            self.target_pax(ps, pax_qty);
             self
         }
 
@@ -1053,12 +1004,6 @@ mod boarding_test {
         fn sound_pax_complete(&self) -> bool {
             self.query(|a| a.boarding.sound_pax_complete())
         }
-
-        // TODO: Write tests using this function
-        /*  fn pax(&self, ps: A320Pax) -> u64 {
-            self.query(|a| a.boarding.pax(ps as usize))
-        }
-        */
 
         fn pax_num(&self, ps: A320Pax) -> i8 {
             self.query(|a| a.boarding.pax_num(ps as usize))
@@ -1628,6 +1573,69 @@ mod boarding_test {
     }
 
     #[test]
+    fn detailed_test_with_multiple_stops() {
+        let mut test_bed = test_bed_with()
+            .init_vars_lbs()
+            .with_pax(A320Pax::A, 5)
+            .with_pax(A320Pax::B, 1)
+            .with_pax(A320Pax::C, 16)
+            .with_pax(A320Pax::D, 42)
+            .with_pax_target(A320Pax::A, 15)
+            .with_pax_target(A320Pax::B, 14)
+            .with_pax_target(A320Pax::C, 32)
+            .with_pax_target(A320Pax::D, 12)
+            .load_half_cargo()
+            .real_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        test_bed.boarding_started();
+        test_bed = test_bed.stop_boarding().and_run();
+
+        test_bed.boarding_stopped();
+
+        test_bed = test_bed.start_boarding();
+
+        assert_eq!(test_bed.pax_num(A320Pax::A), 15);
+        assert_eq!(test_bed.pax_num(A320Pax::B), 14);
+        assert_eq!(test_bed.pax_num(A320Pax::C), 32);
+        assert_eq!(test_bed.pax_num(A320Pax::D), 34);
+
+        let five_minutes_in_seconds = 5 * MINUTES_TO_SECONDS;
+
+        test_bed
+            .test_bed
+            .run_multiple_frames(Duration::from_secs(five_minutes_in_seconds));
+
+        assert_eq!(test_bed.pax_num(A320Pax::A), 15);
+        assert_eq!(test_bed.pax_num(A320Pax::B), 14);
+        assert_eq!(test_bed.pax_num(A320Pax::C), 32);
+        assert_eq!(test_bed.pax_num(A320Pax::D), 12);
+        test_bed.has_no_cargo();
+
+        test_bed = test_bed
+            .init_vars_kg()
+            .with_pax_target(A320Pax::A, 0)
+            .with_pax_target(A320Pax::B, 0)
+            .with_pax_target(A320Pax::C, 0)
+            .with_pax_target(A320Pax::D, 0)
+            .target_half_cargo()
+            .instant_board_rate()
+            .start_boarding()
+            .and_run()
+            .and_stabilize();
+
+        test_bed.has_no_pax();
+        test_bed.has_half_cargo();
+        test_bed.boarding_stopped();
+
+        test_bed = test_bed.and_run();
+        test_bed.has_no_sound_pax_ambience();
+        test_bed.sound_boarding_complete_reset();
+    }
+
+    #[test]
     fn disable_if_gsx_enabled() {
         let mut test_bed = test_bed_with()
             .init_vars_lbs()
@@ -1653,6 +1661,4 @@ mod boarding_test {
         test_bed.has_no_sound_pax_ambience();
         test_bed.sound_boarding_complete_reset();
     }
-
-    // TODO: Sound tests
 }

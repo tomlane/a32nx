@@ -283,6 +283,46 @@ async fn systems(mut gauge: msfs::Gauge) -> Result<(), Box<dyn Error>> {
             Variable::aspect("BUTTON_OVHD_ANTI_ICE_WING_POSITION"),
         );
 
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 1),
+            Variable::aspect("PAYLOAD_STATION_1_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 2),
+            Variable::aspect("PAYLOAD_STATION_2_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 3),
+            Variable::aspect("PAYLOAD_STATION_3_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 4),
+            Variable::aspect("PAYLOAD_STATION_4_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 5),
+            Variable::aspect("PAYLOAD_STATION_5_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 6),
+            Variable::aspect("PAYLOAD_STATION_6_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 7),
+            Variable::aspect("PAYLOAD_STATION_7_REQ"),
+        );
+
+        builder.copy(
+            Variable::aircraft("PAYLOAD STATION WEIGHT", "Pounds", 8),
+            Variable::aspect("PAYLOAD_STATION_8_REQ"),
+        );
+
         builder.map(
             ExecuteOn::PreTick,
             Variable::aircraft("INTERACTIVE POINT OPEN", "Position", 5),
