@@ -25,7 +25,6 @@
 
 import { NXDataStore } from '@shared/persistence';
 import { LegType } from '@fmgc/types/fstypes/FSEnums';
-import { FlightLevel } from '@fmgc/guidance/vnav/verticalFlightPlan/VerticalFlightPlan';
 import { LnavConfig } from '@fmgc/guidance/LnavConfig';
 import { ApproachStats, HoldData } from '@fmgc/flightplanning/data/flightplan';
 import { SegmentType } from '@fmgc/wtsdk';
@@ -34,6 +33,8 @@ import { GPS } from './GPS';
 import { FlightPlanSegment } from './FlightPlanSegment';
 import { FlightPlanAsoboSync } from './FlightPlanAsoboSync';
 import { FixInfo } from './FixInfo';
+
+type FlightLevel = any
 
 export enum WaypointConstraintType {
     CLB = 1,
@@ -1140,9 +1141,9 @@ export class FlightPlanManager {
      */
     public getOriginRunway(): OneWayRunway {
         const runwayIndex = this.getOriginRunwayIndex();
-        if (runwayIndex >= 0) {
-            return this.getOrigin().infos.oneWayRunways[runwayIndex];
-        }
+        // if (runwayIndex >= 0) {
+        // return this.getOrigin().infos.oneWayRunways[runwayIndex];
+        // }
         return undefined;
     }
 

@@ -1,6 +1,9 @@
-//  Copyright (c) 2022 FlyByWire Simulations
-//  SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2021-2022 FlyByWire Simulations
+// Copyright (c) 2021-2022 Synaptic Simulations
+//
+// SPDX-License-Identifier: GPL-3.0
 
+import { MathUtils } from '@shared/MathUtils';
 import { Common } from './common';
 
 export class AtmosphericConditions {
@@ -62,7 +65,7 @@ export class AtmosphericConditions {
     }
 
     getCurrentWindVelocityComponent(direction: DegreesTrue): Knots {
-        return Math.cos(Avionics.Utils.diffAngle(direction, this.currentWindDirection)) * this.currentWindSpeed;
+        return Math.cos(MathUtils.diffAngle(direction, this.currentWindDirection)) * this.currentWindSpeed;
     }
 
     get isaDeviation(): Celsius {

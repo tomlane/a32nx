@@ -117,6 +117,7 @@ export type PFDSimvars = AdirsSimVars & SwitchingPanelVSimVars & {
     xtk: number;
     ldevRequestLeft: boolean;
     ldevRequestRight: boolean;
+    vdev: number;
     landingElevation1: number;
     landingElevation1Ssm: number;
     landingElevation2: number;
@@ -266,6 +267,7 @@ export enum PFDVars {
     xtk = 'L:A32NX_FG_CROSS_TRACK_ERROR',
     ldevLeft = 'L:A32NX_FMGC_L_LDEV_REQUEST',
     ldevRight = 'L:A32NX_FMGC_R_LDEV_REQUEST',
+    vdev = 'L:A32NX_FM_VDEV',
     landingElevation1 = 'L:A32NX_FM1_LANDING_ELEVATION',
     landingElevation1Ssm = 'L:A32NX_FM1_LANDING_ELEVATION_SSM',
     landingElevation2 = 'L:A32NX_FM2_LANDING_ELEVATION',
@@ -419,6 +421,7 @@ export class PFDSimvarPublisher extends SimVarPublisher<PFDSimvars> {
         ['xtk', { name: PFDVars.xtk, type: SimVarValueType.NM }],
         ['ldevRequestLeft', { name: PFDVars.ldevLeft, type: SimVarValueType.Bool }],
         ['ldevRequestRight', { name: PFDVars.ldevRight, type: SimVarValueType.Bool }],
+        ['vdev', { name: PFDVars.vdev, type: SimVarValueType.Number }],
         ['landingElevation1', { name: PFDVars.landingElevation1, type: SimVarValueType.Number }],
         ['landingElevation1Ssm', { name: PFDVars.landingElevation1Ssm, type: SimVarValueType.Number }],
         ['landingElevation2', { name: PFDVars.landingElevation2, type: SimVarValueType.Number }],

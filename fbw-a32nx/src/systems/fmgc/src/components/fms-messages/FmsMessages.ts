@@ -1,9 +1,9 @@
 // Copyright (c) 2021-2022 FlyByWire Simulations
+// Copyright (c) 2021-2022 Synaptic Simulations
 //
 // SPDX-License-Identifier: GPL-3.0
 
 import { TurnAreaExceedanceLeft, TurnAreaExceedanceRight } from '@fmgc/components/fms-messages/TurnAreaExceedance';
-import { FlightPlanManager } from '@shared/flightplan';
 import { FMMessage, FMMessageTriggers } from '@shared/FmMessages';
 import { FmgcComponent } from '../FmgcComponent';
 import { GpsPrimary } from './GpsPrimary';
@@ -41,7 +41,7 @@ export class FmsMessages implements FmgcComponent {
         new TurnAreaExceedanceRight(),
     ];
 
-    init(baseInstrument: BaseInstrument, _flightPlanManager: FlightPlanManager): void {
+    init(baseInstrument: BaseInstrument): void {
         this.baseInstrument = baseInstrument;
 
         for (const selector of this.messageSelectors) {

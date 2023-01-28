@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { A320Failure, Failure, FailuresOrchestrator } from '@failures';
+import { A320Failure, Failure, FailuresOrchestrator } from '@flybywiresim/failures';
 import { useUpdate } from '@instruments/common/hooks';
 
 interface FailuresOrchestratorContext {

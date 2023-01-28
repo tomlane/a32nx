@@ -5,11 +5,7 @@ import React, { FC, memo } from 'react';
 import { MathUtils } from '@shared/MathUtils';
 import { Layer } from '@instruments/common/utils';
 import { useSimVar } from '@instruments/common/simVars';
-import { TFLeg } from '@fmgc/guidance/lnav/legs/TF';
-import { VMLeg } from '@fmgc/guidance/lnav/legs/VM';
 import { EfisSide, EfisVectorsGroup, NdSymbol, NdSymbolTypeFlags } from '@shared/NavigationDisplay';
-import { Leg } from '@fmgc/guidance/lnav/legs/Leg';
-import { HALeg, HFLeg, HMLeg, HxLegGuidanceState } from '@fmgc/guidance/lnav/legs/HX';
 import { MapParameters } from '../utils/MapParameters';
 import { FlightPlanVectors } from './FlightPlanVectors';
 
@@ -53,7 +49,7 @@ export const FlightPlan: FC<FlightPathProps> = memo(({ x = 0, y = 0, side, range
                 );
             })}
 
-            {Object.keys(EfisVectorsGroup).filter((it) => !Number.isNaN(parseInt(it))).map((group) => (
+            {Object.keys(EfisVectorsGroup).filter((it) => !Number.isNaN(parseInt(it))).reverse().map((group) => (
                 <FlightPlanVectors
                     key={EfisVectorsGroup[group]}
                     x={0}
@@ -314,7 +310,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, endX, endY, arc
     if (constraints) {
         let constraintY = 17;
         elements.push(...constraints.map((t) => (
-            <text x={13.5} y={constraintY += 17} className="Magenta shadow" fontSize={20}>{t}</text>
+            <text x={13.5} y={constraintY += 17} className="shadow Magenta" fontSize={20}>{t}</text>
         )));
     }
 
@@ -398,7 +394,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, endX, endY, arc
                 <circle cx={0} cy={0} r={12} strokeWidth={1.8} className="shadow" />
                 <circle cx={0} cy={0} r={12} strokeWidth={1.5} className="White" />
 
-                <text x={2.5} y={2} className="White shadow" textAnchor="middle" dominantBaseline="middle" fontSize={21}>1</text>
+                <text x={2.5} y={2} className="shadow White" textAnchor="middle" dominantBaseline="middle" fontSize={21}>1</text>
             </>,
         );
     } else if (type & (NdSymbolTypeFlags.PwpCdaFlap2)) {
@@ -408,7 +404,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, endX, endY, arc
                 <circle cx={0} cy={0} r={12} strokeWidth={1.8} className="shadow" />
                 <circle cx={0} cy={0} r={12} strokeWidth={1.5} className="White" />
 
-                <text x={1} y={2} className="White shadow" textAnchor="middle" dominantBaseline="middle" fontSize={21}>2</text>
+                <text x={1} y={2} className="shadow White" textAnchor="middle" dominantBaseline="middle" fontSize={21}>2</text>
             </>,
         );
     } else if (type & (NdSymbolTypeFlags.PwpDecel)) {
@@ -418,7 +414,7 @@ const SymbolMarker: FC<SymbolMarkerProps> = memo(({ ident, x, y, endX, endY, arc
                 <circle cx={0} cy={0} r={13} strokeWidth={1.6} className="shadow" />
                 <circle cx={0} cy={0} r={12} strokeWidth={1.5} className="Magenta" />
 
-                <text x={1.5} y={2} className="Magenta shadow" strokeWidth={1} textAnchor="middle" dominantBaseline="middle" fontSize={22}>D</text>
+                <text x={1.5} y={2} className="shadow Magenta" strokeWidth={1} textAnchor="middle" dominantBaseline="middle" fontSize={22}>D</text>
             </>,
         );
     }
@@ -470,105 +466,3 @@ const ConstraintMarker: FC<ConstraintMarkerProps> = memo(({ x, y, type }) => {
         </Layer>
     );
 });
-
-export type DebugLegProps<TLeg extends Leg> = {
-    leg: TLeg,
-    mapParams: MapParameters,
-};
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const DebugLeg: FC<DebugLegProps<Leg>> = ({ leg, mapParams }) => {
-    if (leg instanceof TFLeg) {
-        return <DebugTFLeg leg={leg} mapParams={mapParams} />;
-    } if (leg instanceof VMLeg) {
-        return <DebugVMLeg leg={leg} mapParams={mapParams} />;
-    } if (leg instanceof HALeg || leg instanceof HFLeg || leg instanceof HMLeg) {
-        return <DebugHXLeg leg={leg} mapParams={mapParams} />;
-    }
-
-    return null;
-};
-
-const DebugTFLeg: FC<DebugLegProps<TFLeg>> = ({ leg, mapParams }) => {
-    const legType = 'TF';
-
-    const [lat] = useSimVar('PLANE LATITUDE', 'degrees', 250);
-    const [long] = useSimVar('PLANE LONGITUDE', 'degrees', 250);
-
-    const [fromX, fromY] = mapParams.coordinatesToXYy(leg.from.infos.coordinates);
-    const [toX, toY] = mapParams.coordinatesToXYy(leg.to.infos.coordinates);
-
-    const [infoX, infoY] = [
-        Math.round(Math.min(fromX, toX) + (Math.abs(toX - fromX) / 2) + 5),
-        Math.round(Math.min(fromY, toY) + (Math.abs(toY - fromY) / 2)),
-    ];
-
-    return (
-        <>
-            <text fill="#ff4444" x={infoX} y={infoY} fontSize={16}>
-                {leg.from.ident}
-                {' '}
-                -&gt;
-                {' '}
-                {leg.to.ident}
-            </text>
-            <text fill="#ff4444" x={infoX} y={infoY + 20} fontSize={16}>{legType}</text>
-            <text fill="#ff4444" x={infoX} y={infoY + 40} fontSize={16}>
-                Tl:
-                {' '}
-                {MathUtils.fastToFixed(leg.inboundCourse, 1)}
-            </text>
-            <text fill="#ff4444" x={infoX + 100} y={infoY + 40} fontSize={16}>
-                tA:
-                {' '}
-                {MathUtils.fastToFixed(leg.getAircraftToLegBearing({ lat, long }), 1)}
-            </text>
-            <text fill="#ff4444" x={infoX} y={infoY + 60} fontSize={16}>
-                DTG:
-                {' '}
-                {MathUtils.fastToFixed(leg.getDistanceToGo({ lat, long }), 3)}
-            </text>
-        </>
-    );
-};
-
-const DebugVMLeg: FC<DebugLegProps<VMLeg>> = ({ leg, mapParams }) => {
-    const legType = 'VM';
-
-    const [lat] = useSimVar('PLANE LATITUDE', 'degrees', 250);
-    const [long] = useSimVar('PLANE LONGITUDE', 'degrees', 250);
-
-    const [fromX, fromY] = mapParams.coordinatesToXYy({ lat, long });
-
-    const [infoX, infoY] = [fromX, fromY - 150];
-
-    return (
-        <>
-            <text fill="#ff4444" x={infoX} y={infoY} fontSize={16}>
-                {leg.heading}
-                &deg;
-            </text>
-            <text fill="#ff4444" x={infoX} y={infoY + 20} fontSize={16}>{legType}</text>
-        </>
-    );
-};
-
-const DebugHXLeg: FC<DebugLegProps<HALeg | HFLeg | HMLeg>> = ({ leg, mapParams }) => {
-    const legType = leg.constructor.name.substr(0, 2);
-
-    const [fromX, fromY] = mapParams.coordinatesToXYy(leg.to.infos.coordinates);
-
-    const [infoX, infoY] = [fromX, fromY - 150];
-
-    return (
-        <>
-            <text fill="#ff4444" x={infoX} y={infoY} fontSize={16}>
-                {HxLegGuidanceState[leg.state]}
-                {' - r='}
-                {leg.radius.toFixed(1)}
-                {' NM'}
-            </text>
-            <text fill="#ff4444" x={infoX} y={infoY + 20} fontSize={16}>{legType}</text>
-        </>
-    );
-};

@@ -1,6 +1,9 @@
-// Copyright (c) 2021 FlyByWire Simulations
+// Copyright (c) 2021-2022 FlyByWire Simulations
+// Copyright (c) 2021-2022 Synaptic Simulations
+//
 // SPDX-License-Identifier: GPL-3.0
 
+import { UpdateThrottler } from '@shared/UpdateThrottler';
 import { NearestSearchType } from '../types/fstypes/FSEnums';
 
 // WARNING: this is a temporary implementation until the new nav database is complete
@@ -38,11 +41,11 @@ export class NearbyFacilities {
 
     constructor() {
         this.listener = RegisterViewListener('JS_LISTENER_FACILITY', async () => {
-            this.listener.on('SendAirport', this.addAirport.bind(this));
-            this.listener.on('SendIntersection', this.addWaypoint.bind(this));
-            this.listener.on('SendNdb', this.addNdbNavaid.bind(this));
-            this.listener.on('SendVor', this.addVhfNavaid.bind(this));
-            this.listener.on('NearestSearchCompleted', this.onSearchCompleted.bind(this));
+            this.listener.on('SendAirport', this.addAirport.bind(this), null);
+            this.listener.on('SendIntersection', this.addWaypoint.bind(this), null);
+            this.listener.on('SendNdb', this.addNdbNavaid.bind(this), null);
+            this.listener.on('SendVor', this.addVhfNavaid.bind(this), null);
+            this.listener.on('NearestSearchCompleted', this.onSearchCompleted.bind(this), null);
 
             this.airportSessionId = await Coherent.call('START_NEAREST_SEARCH_SESSION', NearestSearchType.Airport);
             this.ndbSessionId = await Coherent.call('START_NEAREST_SEARCH_SESSION', NearestSearchType.Ndb);

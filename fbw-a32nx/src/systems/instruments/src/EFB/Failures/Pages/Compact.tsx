@@ -1,6 +1,6 @@
 import { AtaChapterNumber, AtaChaptersTitle } from '@shared/ata';
 import React from 'react';
-import { Failure } from '@failures';
+import { Failure } from '@flybywiresim/failures';
 import { t } from '../../translation';
 import { FailureButton } from '../FailureButton';
 import { useFailuresOrchestrator } from '../../failures-orchestrator-provider';

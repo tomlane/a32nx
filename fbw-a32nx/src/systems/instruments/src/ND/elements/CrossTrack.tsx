@@ -18,7 +18,7 @@ export const CrossTrack: React.FC<CrossTrackProps> = ({ x, y, isPlanMode, side }
     let crossTrackX = x;
     const crossTrackAbs = Math.min(99.9, Math.abs(crossTrackError));
 
-    if (rnp > 0 && rnp <= (0.3 + Number.EPSILON) && crossTrackAbs >= (0.02 - Number.EPSILON) && crossTrackAbs < (0.3 + Number.EPSILON)) {
+    if (rnp > 0 && rnp <= (0.305) && crossTrackAbs >= (0.02 - Number.EPSILON) && crossTrackAbs < 0.305) {
         crossTrackText = crossTrackAbs.toFixed(2);
     } else if (crossTrackAbs >= 0.1) {
         crossTrackText = crossTrackAbs.toFixed(1);

@@ -9,7 +9,7 @@ TOC:
 ## Development Process
 
 - To add something to the EFB simply add the key and English phrase to the en.json file.
-    - `src/systems/instruments/src/EFB/Localization/en.json`
+    - `src/instruments/src/EFB/Localization/en.json`
 - Ping in the Discord channel `#efb` to have someone with write permission to Localazy to add the key (several ways to
   do that - but the permission required is powerful). Adding it is a 2min thing.
 - Do this in good time before it is merged to master
@@ -54,10 +54,10 @@ To update the language files locallyhe languaes you need to run:
 `npm run build:efb-translation local`
 
 This downloads the latest translations directly from Localazy to the 'downloaded'
-folder (`src/systems/instruments/src/EFB/Localization/downloaded`).
+folder (`src/instruments/src/EFB/Localization/downloaded`).
 
-It checks the JSON syntax and writes new JSON files for each language to the `src/systems/instruments/src/EFB/Localization`
-folder from there they can be imported in the `src/systems/instruments/src/EFB/translation.ts`.
+It checks the JSON syntax and writes new JSON files for each language to the `src/instruments/src/EFB/Localization`
+folder from there they can be imported in the `src/instruments/src/EFB/translation.ts`.
 
 ## Update Source File
 

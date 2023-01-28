@@ -39,13 +39,16 @@ import {
 } from 'msfs-geo';
 import { PILeg } from '@fmgc/guidance/lnav/legs/PI';
 import { isCourseReversalLeg } from '@fmgc/guidance/lnav/legs';
+import { CDLeg } from '@fmgc/guidance/lnav/legs/CD';
+import { FDLeg } from '@fmgc/guidance/lnav/legs/FD';
 import { Leg } from '../legs/Leg';
 import { CFLeg } from '../legs/CF';
 import { CRLeg } from '../legs/CR';
+import { RFLeg } from '../legs/RF';
 
-export type PrevLeg = AFLeg | CALeg | /* CDLeg | */ CRLeg | /* FALeg | */ HALeg | HFLeg | HMLeg;
+export type PrevLeg = AFLeg | CALeg | CDLeg | CRLeg | /* FALeg | */ FDLeg | HALeg | HFLeg | HMLeg | RFLeg;
 export type ReversionLeg = CFLeg | CILeg | DFLeg | TFLeg;
-export type NextLeg = AFLeg | CFLeg | /* FALeg | */ TFLeg;
+export type NextLeg = AFLeg | CFLeg | FDLeg | /* FALeg | */ TFLeg;
 type NextReversionLeg = PILeg;
 
 const cos = (input: Degrees) => Math.cos(input * (Math.PI / 180));
@@ -113,11 +116,13 @@ export class PathCaptureTransition extends Transition {
         this.computedTurnDirection = TurnDirection.Either;
         this.computedTargetTrack = this.nextLeg.inboundCourse;
 
-        let prevLegTermFix: LatLongAlt | Coordinates;
+        let prevLegTermFix: Coordinates;
         if (this.previousLeg instanceof AFLeg) {
             prevLegTermFix = this.previousLeg.arcEndPoint;
+        } else if ('lat' in this.previousLeg.terminationWaypoint) {
+            prevLegTermFix = this.previousLeg.terminationWaypoint;
         } else {
-            prevLegTermFix = this.previousLeg.terminationWaypoint instanceof WayPoint ? this.previousLeg.terminationWaypoint.infos.coordinates : this.previousLeg.terminationWaypoint;
+            prevLegTermFix = this.previousLeg.terminationWaypoint.location;
         }
 
         // Start the transition before the termination fix if we are reverted because of an overshoot
@@ -129,8 +134,8 @@ export class PathCaptureTransition extends Transition {
 
             // If we are inbound of a TF leg, we use getIntermediatePoint in order to get more accurate results
             if ('from' in this.previousLeg) {
-                const start = this.previousLeg.from.infos.coordinates;
-                const end = this.previousLeg.to.infos.coordinates;
+                const start = (this.previousLeg as TFLeg).from.location;
+                const end = this.previousLeg.to.location;
                 const length = distanceTo(start, end);
 
                 const ratio = (length - this.tad) / length;
@@ -224,7 +229,7 @@ export class PathCaptureTransition extends Transition {
             // If we are inbound of a TF leg, we use the TF leg ref fix for our small circle intersect in order to get
             // more accurate results
             if ('from' in this.nextLeg) {
-                const intersects = smallCircleGreatCircleIntersection(turnCenter, radius, this.nextLeg.from.infos.coordinates, this.nextLeg.outboundCourse);
+                const intersects = smallCircleGreatCircleIntersection(turnCenter, radius, this.nextLeg.from.location, this.nextLeg.outboundCourse);
 
                 if (intersects) {
                     const [one, two] = intersects;
@@ -251,7 +256,7 @@ export class PathCaptureTransition extends Transition {
                 const bearingTcFtp = bearingTo(turnCenter, intercept);
 
                 const angleToLeg = MathUtils.diffAngle(
-                    Avionics.Utils.clampAngle(bearingTcFtp - (turnDirection > 0 ? -90 : 90)),
+                    MathUtils.clampAngle(bearingTcFtp - (turnDirection > 0 ? -90 : 90)),
                     this.nextLeg.outboundCourse,
                 );
 
@@ -325,8 +330,8 @@ export class PathCaptureTransition extends Transition {
         if ('from' in this.nextLeg) {
             const intersections = placeBearingIntersection(
                 finalTurningPoint,
-                Avionics.Utils.clampAngle(targetTrack + courseChange),
-                this.nextLeg.from.infos.coordinates,
+                MathUtils.clampAngle(targetTrack + courseChange),
+                this.nextLeg.from.location,
                 this.nextLeg.outboundCourse,
             );
 

@@ -1,10 +1,3 @@
-import { FlightPlanManager, ManagedFlightPlan } from '../../fmgc/src';
-
-export {
-    FlightPlanManager,
-    ManagedFlightPlan,
-};
-
 export type ApproachNameComponents = {
     // the approach type, e.g. ILS or RNAV
     type: string,

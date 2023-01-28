@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePersistentProperty, useSessionStorage } from '@instruments/common/persistence';
-import { SentryConsentState, SENTRY_CONSENT_KEY } from '@sentry/FbwAircraftSentryClient';
+import { SentryConsentState, SENTRY_CONSENT_KEY } from '../../../../../sentry-client/src/FbwAircraftSentryClient';
 import { SettingsPage } from '../Settings';
 
 // @ts-ignore

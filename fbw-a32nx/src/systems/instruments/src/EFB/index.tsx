@@ -8,7 +8,7 @@ import { Provider } from 'react-redux';
 import { render } from '@instruments/common/index';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useSimVar } from '@instruments/common/simVars';
-import { SentryConsentState, SENTRY_CONSENT_KEY } from '@sentry/FbwAircraftSentryClient';
+import { SentryConsentState, SENTRY_CONSENT_KEY } from '../../../sentry-client/src/FbwAircraftSentryClient';
 import { ModalProvider } from './UtilComponents/Modals/Modals';
 import { FailuresOrchestratorProvider } from './failures-orchestrator-provider';
 import Efb from './Efb';
