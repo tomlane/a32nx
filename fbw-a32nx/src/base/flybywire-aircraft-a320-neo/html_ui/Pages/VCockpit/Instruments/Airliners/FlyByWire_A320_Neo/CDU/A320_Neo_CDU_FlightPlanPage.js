@@ -10,7 +10,7 @@ const Markers = {
 
 class CDUFlightPlanPage {
 
-    static ShowPage(mcdu, offset = 0) {
+    static ShowPage(mcdu, offset = 0, forPlan = 0) {
 
         // INIT
         function addLskAt(index, delay, callback) {
@@ -23,10 +23,11 @@ class CDUFlightPlanPage {
             mcdu.onRightInput[index] = callback;
         }
 
-        function getRunwayInfo(runway) {
+        function getRunwayInfo(/** @type {import('msfs-navdata').Runway} */ runway) {
+            return ['', ''];
             let runwayText, runwayAlt;
             if (runway) {
-                runwayText = Avionics.Utils.formatRunway(runway.designation);
+                runwayText = runway.ident.substring(2);
                 runwayAlt = (runway.elevation * 3.280).toFixed(0).toString();
             }
             return [runwayText, runwayAlt];
@@ -37,7 +38,7 @@ class CDUFlightPlanPage {
         mcdu.clearDisplay();
         mcdu.page.Current = mcdu.page.FlightPlanPage;
         mcdu.returnPageCallback = () => {
-            CDUFlightPlanPage.ShowPage(mcdu, offset);
+            CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
         };
         mcdu.activeSystem = 'FMGC';
         const fpm = mcdu.flightPlanManager;
@@ -45,7 +46,7 @@ class CDUFlightPlanPage {
         // regular update due to showing dynamic data on this page
         mcdu.page.SelfPtr = setTimeout(() => {
             if (mcdu.page.Current === mcdu.page.FlightPlanPage) {
-                CDUFlightPlanPage.ShowPage(mcdu, offset);
+                CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
             }
         }, mcdu.PageTimeout.Medium);
 
@@ -53,7 +54,7 @@ class CDUFlightPlanPage {
         const isFlying = flightPhase >= FmgcFlightPhases.TAKEOFF && flightPhase != FmgcFlightPhases.DONE;
 
         let showFrom = false;
-        let showTMPY = false;
+        const showSEC = false;
         // TODO FIXME: Correct FMS lateral position calculations and move logic from F-PLN A
         // 22-70-00:11
         const adirLat = ADIRS.getLatitude();
@@ -65,52 +66,98 @@ class CDUFlightPlanPage {
             lat: NaN,
             long: NaN
         };
-        const stats = fpm.getCurrentFlightPlan().computeWaypointStatistics(ppos);
+
+        const forActiveOrTemporary = forPlan === 0;
+        const targetPlan = forActiveOrTemporary ? mcdu.flightPlanService.activeOrTemporary : mcdu.flightPlanService.secondary(1);
+        const planAccentColor = forActiveOrTemporary ? mcdu.flightPlanService.hasTemporary ? 'yellow' : 'green' : 'white';
+
+        let headerText;
+        if (forActiveOrTemporary) {
+            if (mcdu.flightPlanService.hasTemporary) {
+                headerText = `{yellow}{sp}TMPY{end}`;
+            } else {
+                headerText = `{sp}`;
+            }
+        } else {
+            headerText = `{sp}{sp}{sp}{sp}{sp}{sp}{sp}{sp}{sp}{sp}{sp}SEC`;
+        }
+
+        let flightNumberText = '';
+        if (forActiveOrTemporary) {
+            flightNumberText = SimVar.GetSimVarValue("ATC FLIGHT NUMBER", "string", "FMC");
+        }
+
+        const stats = targetPlan.computeWaypointStatistics();
+        // const stats = fpm.getCurrentFlightPlan().computeWaypointStatistics(ppos);
 
         // TODO FIXME: Move from F-PLN A
         const utcTime = SimVar.GetGlobalVarValue("ZULU TIME", "seconds");
-        if (fpm.getOrigin()) {
+
+        if (mcdu.flightPlanService.active.originAirport) {
             if (!isFlying) {
-                fpm._waypointReachedAt = utcTime;
+                // TODO
+                // fpm._waypointReachedAt = utcTime;
             }
         }
 
         const waypointsAndMarkers = [];
-        const activeFirst = Math.max(0, fpm.getActiveWaypointIndex() - 1);
-
-        // If we're still on the ground, force the active leg to be the first one even if we're close enough that the
-        // FPM is trying to advance to the next one.
-        const first = (mcdu.flightPhaseManager.phase <= FmgcFlightPhases.TAKEOFF) ? 0 : activeFirst;
+        const first = Math.max(0, targetPlan.activeLegIndex - 1);
 
         // PWPs
         const fmsPseudoWaypoints = mcdu.guidanceController.currentPseudoWaypoints;
 
         // Primary F-PLAN
-        for (let i = first; i < fpm.getWaypointsCount(); i++) {
+        for (let i = first; i < targetPlan.legCount; i++) {
             const pseudoWaypointsOnLeg = fmsPseudoWaypoints.filter((it) => it.displayedOnMcdu && it.alongLegIndex === i);
 
             if (pseudoWaypointsOnLeg) {
                 waypointsAndMarkers.push(...pseudoWaypointsOnLeg.map((pwp) => ({ pwp, fpIndex: i })));
             }
 
-            const wp = fpm.getWaypoint(i);
+            /** @type {FlightPlanElement} */
+            const wp = targetPlan.allLegs[i];
 
-            if (i >= fpm.getActiveWaypointIndex() && wp.additionalData.legType === 14 /* HM */) {
+            if (wp.isDiscontinuity) {
+                waypointsAndMarkers.push({ marker: Markers.FPLN_DISCONTINUITY, fpIndex: i, inAlternate: false });
+                continue;
+            }
+
+            if (i >= targetPlan.activeLegIndex && wp.definition.type === 'HM') {
                 waypointsAndMarkers.push({ holdResumeExit: wp, fpIndex: i });
             }
 
-            waypointsAndMarkers.push({ wp, fpIndex: i});
+            waypointsAndMarkers.push({ wp, fpIndex: i, inAlternate: false });
 
-            if (wp.endsInDiscontinuity) {
-                waypointsAndMarkers.push({ marker: Markers.FPLN_DISCONTINUITY, fpIndex: i});
-            }
-            if (i === fpm.getDestinationIndex()) {
-                waypointsAndMarkers.push({ marker: Markers.END_OF_FPLN, fpIndex: i});
-                // TODO: Rewrite once alt fpln exists
-                waypointsAndMarkers.push({ marker: Markers.NO_ALTN_FPLN, fpIndex: i});
+            if (i === targetPlan.lastLegIndex) {
+                waypointsAndMarkers.push({ marker: Markers.END_OF_FPLN, fpIndex: i, inAlternate: false });
             }
         }
-        // TODO: Alt F-PLAN
+
+        // Primary ALTN F-PLAN
+        if (targetPlan.alternateDestinationAirport) {
+            for (let i = 0; i < targetPlan.alternateFlightPlan.legCount; i++) {
+                /** @type {FlightPlanElement} */
+                const wp = targetPlan.alternateFlightPlan.allLegs[i];
+
+                if (wp.isDiscontinuity) {
+                    waypointsAndMarkers.push({ marker: Markers.FPLN_DISCONTINUITY, fpIndex: i, inAlternate: true });
+                    continue;
+                }
+
+                // TODO port over (fms-v2)
+                if (i >= targetPlan.alternateFlightPlan.activeLegIndex && wp.definition.type === 'HM') {
+                    waypointsAndMarkers.push({ holdResumeExit: wp, fpIndex: i, inAlternate: true });
+                }
+
+                waypointsAndMarkers.push({ wp, fpIndex: i, inAlternate: true });
+
+                if (i === targetPlan.alternateFlightPlan.lastLegIndex) {
+                    waypointsAndMarkers.push({ marker: Markers.END_OF_ALTN_FPLN, fpIndex: i, inAlternate: true });
+                }
+            }
+        } else {
+            waypointsAndMarkers.push({ marker: Markers.NO_ALTN_FPLN, fpIndex: targetPlan.legCount + 1, inAlternate: true });
+        }
 
         // Render F-PLAN Display
 
@@ -123,10 +170,10 @@ class CDUFlightPlanPage {
         if (waypointsAndMarkers.length === 0) {
             rowsCount = 0;
             mcdu.setTemplate([
-                [`{left}{small}{sp}${showFrom ? "FROM" : "{sp}{sp}{sp}{sp}"}{end}{yellow}{sp}${showTMPY ? "TMPY" : ""}{end}{end}{right}{small}${SimVar.GetSimVarValue("ATC FLIGHT NUMBER", "string", "FMC")}{sp}{sp}{sp}{end}{end}`],
+                [`{left}{small}{sp}${showFrom ? "FROM" : "{sp}{sp}{sp}{sp}"}{end}${headerText}{end}{right}{small}${flightNumberText}{sp}{sp}{sp}{end}{end}`],
                 ...emptyFplnPage()
             ]);
-            mcdu.onLeftInput[0] = () => CDULateralRevisionPage.ShowPage(mcdu);
+            mcdu.onLeftInput[0] = () => CDULateralRevisionPage.ShowPage(mcdu, undefined, undefined, forPlan);
             return;
         } else if (waypointsAndMarkers.length >= 5) {
             rowsCount = 5;
@@ -139,120 +186,93 @@ class CDUFlightPlanPage {
         for (let rowI = 0, winI = offset; rowI < rowsCount; rowI++, winI++) {
             winI = winI % (waypointsAndMarkers.length);
 
-            const {wp, pwp, marker, holdResumeExit, fpIndex} = waypointsAndMarkers[winI];
+            const { /** @type {{wp: FlightPlanElement}} */ wp, pwp, marker, holdResumeExit, fpIndex, inAlternate} = waypointsAndMarkers[winI];
 
-            const wpPrev = fpm.getWaypoint(fpIndex - 1);
-            const wpNext = fpm.getWaypoint(fpIndex + 1);
-            const wpActive = (fpIndex >= fpm.getActiveWaypointIndex());
+            const wpPrev = targetPlan.maybeElementAt(fpIndex - 1);
+            const wpNext = targetPlan.maybeElementAt(fpIndex + 1);
+            const wpActive = (fpIndex >= targetPlan.activeLegIndex);
 
             // Bearing/Track
-            let bearingTrack = "";
-            const bearingTrackTo = wp ? wp : wpNext;
-            if (wpPrev && bearingTrackTo && bearingTrackTo.additionalData.legType !== 14 /* HM */) {
-                const magVar = Facilities.getMagVar(wpPrev.infos.coordinates.lat, wpPrev.infos.coordinates.long);
-                switch (rowI) {
-                    case 1:
-                        if (fpm.getActiveWaypointIndex() === fpIndex) {
-                            const br = fpm.getBearingToActiveWaypoint();
-                            const bearing = A32NX_Util.trueToMagnetic(br, magVar);
-                            bearingTrack = `BRG${bearing.toFixed(0).toString().padStart(3,"0")}\u00b0`;
-                        }
-                        break;
-                    case 2:
-                        const tr = Avionics.Utils.computeGreatCircleHeading(wpPrev.infos.coordinates, bearingTrackTo.infos.coordinates);
-                        const track = A32NX_Util.trueToMagnetic(tr, magVar);
-                        bearingTrack = `{${fpm.isCurrentFlightPlanTemporary() ? "yellow" : "green"}}TRK${track.toFixed(0).padStart(3,"0")}\u00b0{end}`;
-                        break;
-                }
-            }
+            const bearingTrack = "";
+            // const bearingTrackTo = wp ? wp : wpNext; TODO port over
+            // if (wpPrev && bearingTrackTo && bearingTrackTo.additionalData.legType !== 14 /* HM */) {
+            //     const magVar = Facilities.getMagVar(wpPrev.infos.coordinates.lat, wpPrev.infos.coordinates.long);
+            //     switch (rowI) {
+            //         case 1:
+            //             if (fpm.getActiveWaypointIndex() === fpIndex) {
+            //                 const br = fpm.getBearingToActiveWaypoint();
+            //                 const bearing = A32NX_Util.trueToMagnetic(br, magVar);
+            //                 bearingTrack = `BRG${bearing.toFixed(0).toString().padStart(3,"0")}\u00b0`;
+            //             }
+            //             break;
+            //         case 2:
+            //             const tr = Avionics.Utils.computeGreatCircleHeading(wpPrev.infos.coordinates, bearingTrackTo.infos.coordinates);
+            //             const track = A32NX_Util.trueToMagnetic(tr, magVar);
+            //             bearingTrack = `{${fpm.isCurrentFlightPlanTemporary() ? "yellow" : "green"}}TRK${track.toFixed(0).padStart(3,"0")}\u00b0{end}`;
+            //             break;
+            //     }
+            // }
 
-            if (wp) {
+            if (wp && wp.isDiscontinuity === false) {
                 // Waypoint
                 if (offset === 0) {
                     showFrom = true;
                 }
 
                 let ident = wp.ident;
-                const isOverfly = wp.additionalData && wp.additionalData.overfly;
+                const isOverfly = wp.definition.overfly;
 
                 // Time
                 let time;
                 let timeCell = "----[s-text]";
                 if (ident !== "MANUAL") {
                     if (isFlying) {
-                        if (fpIndex === fpm.getDestinationIndex() || isFinite(wp.liveUTCTo) || isFinite(wp.waypointReachedAt)) {
-                            time = (fpIndex === fpm.getDestinationIndex() || wpActive || ident === "(DECEL)") ? stats.get(fpIndex).etaFromPpos : wp.waypointReachedAt;
+                        if (fpIndex === targetPlan.destinationLegIndex || isFinite(wp.liveUTCTo) || isFinite(wp.waypointReachedAt)) {
+                            time = (fpIndex === targetPlan.destinationLegIndex || wpActive || ident === "(DECEL)") ? stats.get(fpIndex).etaFromPpos : wp.waypointReachedAt;
                             timeCell = `${FMCMainDisplay.secondsToUTC(time)}[s-text]`;
                         }
                     } else {
-                        if (fpIndex === fpm.getDestinationIndex() || isFinite(wp.liveETATo)) {
-                            time = (fpIndex === fpm.getDestinationIndex() || wpActive || ident === "(DECEL)") ? stats.get(fpIndex).timeFromPpos : 0;
+                        if (fpIndex === targetPlan.destinationLegIndex || isFinite(wp.liveETATo)) {
+                            time = (fpIndex === targetPlan.destinationLegIndex || wpActive || ident === "(DECEL)") ? stats.get(fpIndex).timeFromPpos : 0;
                             timeCell = `${FMCMainDisplay.secondsTohhmm(time)}[s-text]`;
                         }
                     }
                 }
 
                 // Color
-                let color = "green";
-                if (fpm.isCurrentFlightPlanTemporary()) {
-                    color = "yellow";
-                } else if (fpIndex === fpm.getActiveWaypointIndex()) {
+                let color;
+                if (!inAlternate && fpIndex === targetPlan.activeLegIndex) {
                     color = "white";
+                } else {
+                    const inMissedApproach = targetPlan.index === Fmgc.FlightPlanIndex.Active && fpIndex >= targetPlan.firstMissedApproachLegIndex;
+
+                    if (inMissedApproach || inAlternate) {
+                        color = 'cyan';
+                    } else {
+                        color = planAccentColor;
+                    }
                 }
 
                 // Fix Header
-                let fixAnnotation = wp.additionalData.annotation;
+                const fixAnnotation = wp.annotation;
 
-                if (wp.additionalData) {
-                    const magVar = Facilities.getMagVar(wp.infos.coordinates.lat, wp.infos.coordinates.long);
-                    const magCourse = A32NX_Util.trueToMagnetic(wp.additionalData.course, magVar).toFixed(0).padStart(3, '0');
-                    // ARINC Leg Types - R1A 610
-                    switch (wp.additionalData.legType) {
-                        case 1: // AF
-                            fixAnnotation = `${Math.round(wp.additionalData.rho).toString().substring(0, 2).padStart(2, '\xa0')} ${WayPoint.formatIdentFromIcao(wp.additionalData.recommendedIcao).substring(0, 3)}`;
-                            break;
-                        case 2: // CA
-                        case 3: // CD
-                        case 4: // CF
-                        case 5: // CI
-                        case 6: // CR
-                        case 9: // FC
-                        case 10: // FD
-                            fixAnnotation = `C${magCourse}\u00b0`;
-                            break;
-                        case 8: // FA
-                            fixAnnotation = `${wp.ident.substring(0, 3)}${magCourse}`;
-                            break;
-                        case 11: // FM
-                            if (wpPrev) {
-                                fixAnnotation = `${wpPrev.ident.substring(0,3)}${magCourse}`;
-                            }
-                            break;
-                        case 12: // HA
-                            ident = wp.legAltitude1.toFixed(0);
-                            // fallthrough
-                        case 13: // HF
-                            fixAnnotation = `HOLD ${wp.turnDirection === 1 ? 'L' : 'R'}`;
-                            break;
-                        case 14: // HM
-                            fixAnnotation = `C${magCourse}°`;
-                            break;
-                        case 16: // PI
-                            fixAnnotation = `PROC ${wp.turnDirection === 1 ? 'L' : 'R'}`;
-                            ident = "INTCPT";
-                            break;
-                        case 17: // RF
-                            fixAnnotation = `${("" + Math.round(wp.additionalData.radius)).padStart(2, "\xa0")}\xa0ARC`;
-                            break;
-                        case 19: // VA
-                        case 20: // VD
-                        case 21: // VI
-                        case 23: // VR
-                            fixAnnotation = `H${magCourse}\u00b0`;
-                            break;
-                        case 22: // VM
-                            fixAnnotation = `H${magCourse}`;
-                            break;
+                // Bearing/Track
+                const bearingTrack = "";
+                if (wpPrev && wpPrev.isDiscontinuity === false && wp.type !== 14 /* HM */) {
+                    // const magVar = Facilities.getMagVar(wpPrev.terminationWaypoint().location.lat, wpPrev.terminationWaypoint().location.lon);
+                    switch (rowI) {
+                        case 1:
+                        // if (mcdu.flightPlanService.activeOrTemporary.activeLegIndex === fpIndex) { TODO
+                        //     const br = fpm.getBearingToActiveWaypoint();
+                        //     const bearing = A32NX_Util.trueToMagnetic(br, magVar);
+                        //     bearingTrack = `BRG${bearing.toFixed(0).toString().padStart(3,"0")}\u00b0`;
+                        // }
+                        // break;
+                        // case 2: TODO
+                        //     const tr = Avionics.Utils.computeGreatCircleHeading(wpPrev.infos.coordinates, wp.infos.coordinates);
+                        //     const track = A32NX_Util.trueToMagnetic(tr, magVar);
+                        //     bearingTrack = `{${mcdu.flightPlanService.hasTemporary} ? "yellow" : "green"}}TRK${track.toFixed(0).padStart(3,"0")}\u00b0{end}`;
+                        //     break;
                     }
                 }
 
@@ -261,17 +281,24 @@ class CDUFlightPlanPage {
 
                 // Active waypoint is live distance, others are distances in the flight plan
                 // TODO FIXME: actually use the correct prediction
-                if (fpIndex === fpm.getActiveWaypointIndex()) {
-                    distance = stats.get(fpIndex).distanceFromPpos.toFixed(0);
-                } else {
-                    distance = stats.get(fpIndex).distanceInFP.toFixed(0);
+                if (!inAlternate) {
+                    if (fpIndex === targetPlan.activeLegIndex) {
+                        distance = stats.get(fpIndex).distanceFromPpos.toFixed(0);
+                    } else {
+                        distance = stats.get(fpIndex).distanceInFP.toFixed(0);
+                    }
                 }
+
                 if (distance > 9999) {
                     distance = 9999;
                 }
+
                 distance = distance.toString();
 
-                const gp = wp.additionalData.verticalAngle ? `${wp.additionalData.verticalAngle.toFixed(1)}°` : undefined;
+                let fpa = '';
+                if (wp.definition.verticalAngle !== undefined) {
+                    fpa = (Math.round(wp.definition.verticalAngle * 10) / 10).toFixed(1);
+                }
 
                 let speedConstraint = "---";
                 if (wp.speedConstraint > 10 && ident !== "MANUAL") {
@@ -283,113 +310,32 @@ class CDUFlightPlanPage {
                 let timeColor = color;
 
                 // Altitude
-                const hasAltConstraint = wp.legAltitudeDescription > 0 && wp.legAltitudeDescription < 6;
+                const hasAltConstraint = legHasAltConstraint(wp);
                 let altitudeConstraint = "-----";
                 let altPrefix = "\xa0";
-                if (fpIndex === fpm.getDestinationIndex()) {
-                    // Only for destination waypoint, show runway elevation.
+                if (!inAlternate && fpIndex === targetPlan.destinationLegIndex) {
                     altColor = "white";
                     spdColor = "white";
-                    const [rwTxt, rwAlt] = getRunwayInfo(fpm.getDestinationRunway());
-                    if (rwTxt && rwAlt) {
-                        altPrefix = "{magenta}*{end}";
-                        ident += rwTxt;
-                        altitudeConstraint = (Math.round((parseInt(rwAlt) + 50) / 10) * 10).toString();
+                    altitudeConstraint = altitudeConstraint.padStart(5, "\xa0");
+                    if (wp.isRunway()) {
+                        altitudeConstraint = formatLegAltConstraint(wp);
                         altColor = color;
+                    } else {
+                        altitudeConstraint = formatAlt(targetPlan.destinationAirport.location.alt);
                     }
-                    altitudeConstraint = altitudeConstraint.padStart(5,"\xa0");
+                } else if (!inAlternate && fpIndex === targetPlan.originLegIndex) {
+                    if (wp.isRunway()) {
+                        const runway = targetPlan.originRunway;
 
-                } else if (wp === fpm.getOrigin() && fpIndex === 0) {
-                    const [rwTxt, rwAlt] = getRunwayInfo(fpm.getOriginRunway());
-                    if (rwTxt && rwAlt) {
-                        ident += rwTxt;
-                        altitudeConstraint = rwAlt;
+                        ident = `${targetPlan.originAirport.ident}${runway.ident.substring(2)}`;
+                        altitudeConstraint = `{big}${formatAlt(runway.thresholdLocation.alt)}{end}`;
                         altColor = color;
+                    } else {
+                        altitudeConstraint = `{big}${formatAlt(targetPlan.originAirport.location.alt)}{end}`;
                     }
-                    altitudeConstraint = altitudeConstraint.padStart(5,"\xa0");
-                } else if (ident !== "MANUAL") {
-                    const firstRouteIndex = 1 + fpm.getDepartureWaypointsCount();
-                    const lastRouteIndex = fpm.getLastIndexBeforeApproach();
-                    //const departureWp = firstRouteIndex > 1 && fpm.getDepartureWaypoints().indexOf(wp) !== -1;
-
-                    // TODO all this constraint code is very sussy
-
-                    if (hasAltConstraint) {
-                        if (mcdu.flightPlanManager.getOriginTransitionAltitude() >= 100 && wp.legAltitude1 > mcdu.flightPlanManager.getOriginTransitionAltitude()) {
-                            altitudeConstraint = (wp.legAltitude1 / 100).toFixed(0).toString();
-                            altitudeConstraint = `FL${altitudeConstraint.padStart(3, "0")}`;
-                        } else {
-                            altitudeConstraint = wp.legAltitude1.toFixed(0).toString().padStart(5, "\xa0");
-                        }
-                    }
-
-                    if (hasAltConstraint && ident !== "(DECEL)") {
-                        altPrefix = "{magenta}*{end}";
-                        if (wp.legAltitudeDescription === 4) {
-                            altitudeConstraint = ((wp.legAltitude1 + wp.legAltitude2) * 0.5).toFixed(0).toString();
-                            altitudeConstraint = altitudeConstraint.padStart(5,"\xa0");
-                        }
-                        // TODO FIXME: remove this and replace with proper altitude constraint implementation
-                        // Predict altitude for STAR when constraints are missing
-                        /*
-                    } else if (departureWp) {
-                        altitudeConstraint = Math.floor(wp.cumulativeDistanceInFP * 0.14 * 6076.118 / 10).toString();
-                        altitudeConstraint = altitudeConstraint.padStart(5,"\xa0");
-                        // Waypoint is the first or the last of the actual route
-                        */
-                    } else if ((fpIndex === firstRouteIndex - 1) || (fpIndex === lastRouteIndex + 1)) {
-                        if (Object.is(NaN, mcdu.cruiseFlightLevel)) {
-                            altitudeConstraint = "-----";
-                        } else {
-                            altitudeConstraint = `FL${mcdu.cruiseFlightLevel.toString().padStart(3,"0")}`;
-                        }
-                        if (fpIndex !== -42) {
-                            mcdu.leftInputDelay[rowI] = (value) => {
-                                if (value === "") {
-                                    if (waypoint) {
-                                        return mcdu.getDelaySwitchPage();
-                                    }
-                                }
-                                return mcdu.getDelayBasic();
-                            };
-                            mcdu.onLeftInput[rowI] = async (value, scratchpadCallback) => {
-                                if (value === "") {
-                                    if (waypoint) {
-                                        CDULateralRevisionPage.ShowPage(mcdu, waypoint, fpIndex);
-                                    }
-                                } else if (value === FMCMainDisplay.clrValue) {
-                                    mcdu.removeWaypoint(fpIndex, () => {
-                                        CDUFlightPlanPage.ShowPage(mcdu, offset);
-                                    });
-                                } else if (value.length > 0) {
-                                    mcdu.insertWaypoint(value, fpIndex, (success) => {
-                                        if (!success) {
-                                            scratchpadCallback();
-                                        }
-                                        CDUFlightPlanPage.ShowPage(mcdu, offset);
-                                    });
-                                }
-                            };
-                            mcdu.rightInputDelay[rowI] = () => {
-                                return mcdu.getDelaySwitchPage();
-                            };
-                            mcdu.onRightInput[rowI] = async () => {
-                                if (waypoint) {
-                                    CDUVerticalRevisionPage.ShowPage(mcdu, waypoint);
-                                }
-                            };
-                        }
-                    // Waypoint is in between on the route
-                    } else if (fpIndex <= lastRouteIndex && fpIndex >= firstRouteIndex) {
-                        if (Object.is(NaN, mcdu.cruiseFlightLevel)) {
-                            altitudeConstraint = "-----";
-                        } else {
-                            altitudeConstraint = `FL${mcdu.cruiseFlightLevel.toString().padStart(3,"0")}`;
-                        }
-                    // Waypoint with no alt constraint
-                    } else if (!wp.legAltitude1 && !wp.legAltitudeDescription) {
-                        altitudeConstraint = "-----";
-                    }
+                } else if (hasAltConstraint) {
+                    altPrefix = "{magenta}*{end}";
+                    altitudeConstraint = formatLegAltConstraint(wp);
                 }
 
                 if (speedConstraint === "---") {
@@ -400,7 +346,7 @@ class CDUFlightPlanPage {
                     altColor = "white";
                 }
 
-                if (fpIndex !== fpm.getDestinationIndex()) {
+                if (fpIndex !== targetPlan.destinationLegIndex) {
                     timeColor = color;
                 } else {
                     timeColor = "white";
@@ -417,23 +363,24 @@ class CDUFlightPlanPage {
 
                 scrollWindow[rowI] = {
                     fpIndex: fpIndex,
+                    inAlternate: inAlternate,
                     active: wpActive,
                     ident: ident,
                     color: color,
                     distance: distance,
-                    gp,
                     spdColor: spdColor,
                     speedConstraint: speedConstraint,
                     altColor: altColor,
-                    altitudeConstraint: { alt: altitudeConstraint, altPrefix: altPrefix },
+                    altitudeConstraint: {alt: altitudeConstraint, altPrefix: altPrefix},
                     timeCell: timeCell,
                     timeColor: timeColor,
                     fixAnnotation: fixAnnotation ? fixAnnotation : "",
                     bearingTrack: bearingTrack,
                     isOverfly: isOverfly,
+                    fpa,
                 };
 
-                if (fpIndex !== fpm.getDestinationIndex()) {
+                if (fpIndex !== targetPlan.destinationLegIndex) {
                     addLskAt(rowI,
                         (value) => {
                             if (value === "") {
@@ -444,30 +391,24 @@ class CDUFlightPlanPage {
                         (value, scratchpadCallback) => {
                             switch (value) {
                                 case "":
-                                    CDULateralRevisionPage.ShowPage(mcdu, wp, fpIndex);
+                                    CDULateralRevisionPage.ShowPage(mcdu, wp, fpIndex, forPlan, inAlternate);
                                     break;
                                 case FMCMainDisplay.clrValue:
-                                    CDUFlightPlanPage.clearWaypoint(mcdu, fpIndex, offset, scratchpadCallback);
+                                    CDUFlightPlanPage.clearElement(mcdu, fpIndex, offset, forPlan, inAlternate, scratchpadCallback);
                                     break;
                                 case FMCMainDisplay.ovfyValue:
-                                    if (wp.additionalData.overfly) {
-                                        mcdu.removeWaypointOverfly(fpIndex, () => {
-                                            CDUFlightPlanPage.ShowPage(mcdu, offset);
-                                        }, !fpm.isCurrentFlightPlanTemporary());
-                                    } else {
-                                        mcdu.addWaypointOverfly(fpIndex, () => {
-                                            CDUFlightPlanPage.ShowPage(mcdu, offset);
-                                        }, !fpm.isCurrentFlightPlanTemporary());
-                                    }
+                                    mcdu.toggleWaypointOverfly(fpIndex, () => {
+                                        CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
+                                    });
                                     break;
                                 default:
                                     if (value.length > 0) {
-                                        mcdu.insertWaypoint(value, fpIndex, (success) => {
+                                        mcdu.insertWaypoint(value, forPlan, inAlternate, fpIndex, true, (success) => {
                                             if (!success) {
                                                 scratchpadCallback();
                                             }
-                                            CDUFlightPlanPage.ShowPage(mcdu, offset);
-                                        }, !fpm.isCurrentFlightPlanTemporary());
+                                            CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
+                                        }, !mcdu.flightPlanService.hasTemporary);
                                     }
                                     break;
                             }
@@ -476,13 +417,13 @@ class CDUFlightPlanPage {
                     addLskAt(rowI, () => mcdu.getDelaySwitchPage(),
                         (value, scratchpadCallback) => {
                             if (value === "") {
-                                CDULateralRevisionPage.ShowPage(mcdu, fpm.getDestination(), fpIndex);
+                                CDULateralRevisionPage.ShowPage(mcdu, wp, fpIndex, forPlan, inAlternate);
                             } else if (value.length > 0) {
-                                mcdu.insertWaypoint(value, fpIndex, (success) => {
+                                mcdu.insertWaypoint(value, forPlan, inAlternate, fpIndex, true, (success) => {
                                     if (!success) {
                                         scratchpadCallback();
                                     }
-                                    CDUFlightPlanPage.ShowPage(mcdu, offset);
+                                    CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
                                 }, true);
                             }
                         });
@@ -504,7 +445,7 @@ class CDUFlightPlanPage {
                     fpIndex: fpIndex,
                     active: false,
                     ident: pwp.ident,
-                    color: (fpm.isCurrentFlightPlanTemporary()) ? "yellow" : "green",
+                    color: forActiveOrTemporary ? (mcdu.flightPlanService.hasTemporary) ? "yellow" : "green" : "white",
                     distance: Math.round(pwp.stats.distanceInFP).toString(),
                     spdColor: "white",
                     speedConstraint: "---",
@@ -517,29 +458,26 @@ class CDUFlightPlanPage {
                     isOverfly: false,
                 };
             } else if (marker) {
-
                 // Marker
                 scrollWindow[rowI] = waypointsAndMarkers[winI];
                 addLskAt(rowI, 0, (value, scratchpadCallback) => {
                     if (value === FMCMainDisplay.clrValue) {
-                        mcdu.clearDiscontinuity(fpIndex, () => {
-                            CDUFlightPlanPage.ShowPage(mcdu, offset);
-                        }, !fpm.isCurrentFlightPlanTemporary());
+                        CDUFlightPlanPage.clearElement(mcdu, fpIndex, offset, forPlan, inAlternate, scratchpadCallback);
                         return;
                     }
 
-                    mcdu.insertWaypoint(value, fpIndex + 1, (success) => {
+                    mcdu.insertWaypoint(value, forPlan, inAlternate, fpIndex, true, (success) => {
                         if (!success) {
                             scratchpadCallback();
                         }
-                        CDUFlightPlanPage.ShowPage(mcdu, offset);
-                    }, !fpm.isCurrentFlightPlanTemporary());
+                        CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
+                    }, !mcdu.flightPlanService.hasTemporary);
                 });
             } else if (holdResumeExit) {
-                const isActive = fpIndex === fpm.getActiveWaypointIndex();
-                const isNext = fpIndex === (fpm.getActiveWaypointIndex() + 1);
+                const isActive = fpIndex === targetPlan.activeLegIndex;
+                const isNext = fpIndex === (targetPlan.activeLegIndex + 1);
                 let color = "green";
-                if (fpm.isCurrentFlightPlanTemporary()) {
+                if (mcdu.flightPlanService.hasTemporary) {
                     color = "yellow";
                 } else if (isActive) {
                     color = "white";
@@ -547,7 +485,7 @@ class CDUFlightPlanPage {
 
                 const decelReached = isActive || isNext && mcdu.holdDecelReached;
                 const holdSpeed = fpIndex === mcdu.holdIndex && mcdu.holdSpeedTarget > 0 ? mcdu.holdSpeedTarget.toFixed(0) : '---';
-                const turnDirection = holdResumeExit.turnDirection === 1 ? 'L' : 'R';
+                const turnDirection = holdResumeExit.definition.turnDirection;
                 // prompt should only be shown once entering decel for hold (3 - 20 NM before hold)
                 const immExit = decelReached && !holdResumeExit.additionalData.immExit;
                 const resumeHold = decelReached && holdResumeExit.additionalData.immExit;
@@ -564,8 +502,7 @@ class CDUFlightPlanPage {
 
                 addLskAt(rowI, 0, (value, scratchpadCallback) => {
                     if (value === FMCMainDisplay.clrValue) {
-                        CDUFlightPlanPage.clearWaypoint(mcdu, fpIndex, offset, scratchpadCallback);
-                        return;
+                        CDUFlightPlanPage.clearElement(mcdu, fpIndex, offset, forPlan, inAlternate, scratchpadCallback);
                     }
 
                     CDUHoldAtPage.ShowPage(mcdu, fpIndex);
@@ -577,11 +514,11 @@ class CDUFlightPlanPage {
                     if (isActive) {
                         mcdu.fmgcMesssagesListener.triggerToAllSubscribers('A32NX_IMM_EXIT', fpIndex, immExit);
                         setTimeout(() => {
-                            CDUFlightPlanPage.ShowPage(mcdu, offset);
+                            CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
                         }, 500);
                     } else if (decelReached) {
                         fpm.removeWaypoint(fpIndex, true, () => {
-                            CDUFlightPlanPage.ShowPage(mcdu, offset);
+                            CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
                         });
                     }
                     scratchpadCallback();
@@ -589,16 +526,21 @@ class CDUFlightPlanPage {
             }
         }
 
-        // Pass current waypoint data to ND
+        // Pass current waypoint data to FMGC
+        SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_FP_INDEX", "number", targetPlan.index);
+
         if (scrollWindow[1]) {
             mcdu.currentFlightPlanWaypointIndex = scrollWindow[1].fpIndex;
-            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT", "number", scrollWindow[1].fpIndex);
+            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_IN_ALTERNATE", "Bool", scrollWindow[1].inAlternate);
+            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_INDEX", "number", scrollWindow[1].fpIndex);
         } else if (scrollWindow[0]) {
             mcdu.currentFlightPlanWaypointIndex = scrollWindow[0].fpIndex;
-            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT", "number", scrollWindow[0].fpIndex);
+            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_IN_ALTERNATE", "Bool", scrollWindow[0].inAlternate);
+            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_INDEX", "number", scrollWindow[0].fpIndex);
         } else {
             mcdu.currentFlightPlanWaypointIndex = first + offset;
-            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT", "number", first + offset);
+            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_IN_ALTERNATE", "Bool", false);
+            SimVar.SetSimVarValue("L:A32NX_SELECTED_WAYPOINT_INDEX", "number", first + offset);
         }
 
         // Render scrolling data to text >> add ditto marks
@@ -654,41 +596,40 @@ class CDUFlightPlanPage {
         // Destination (R6)
 
         const destText = [];
-        if (fpm.isCurrentFlightPlanTemporary()) {
+        if (mcdu.flightPlanService.hasTemporary) {
             destText[0] = [" ", " "];
             destText[1] = ["{ERASE[color]amber", "INSERT*[color]amber"];
 
-            showTMPY = true;
-
             addLskAt(5, 0, async () => {
                 mcdu.eraseTemporaryFlightPlan(() => {
-                    CDUFlightPlanPage.ShowPage(mcdu, 0);
+                    CDUFlightPlanPage.ShowPage(mcdu, 0, forPlan);
                 });
             });
             addRskAt(5, 0, async () => {
                 mcdu.insertTemporaryFlightPlan(() => {
-                    CDUFlightPlanPage.ShowPage(mcdu, 0);
+                    CDUFlightPlanPage.ShowPage(mcdu, 0, forPlan);
                 });
             });
         } else {
             let destCell = "----";
-            let destinationRunway = null;
-            if (fpm.getDestination()) {
-                destCell = fpm.getDestination().ident;
-                destinationRunway = fpm.getDestinationRunway();
-                if (destinationRunway) {
-                    destCell += Avionics.Utils.formatRunway(destinationRunway.designation);
+            if (targetPlan.destinationAirport) {
+                destCell = targetPlan.destinationAirport.ident;
+
+                if (targetPlan.destinationRunway) {
+                    destCell += targetPlan.destinationRunway.ident.substring(2);
                 }
             }
             let destTimeCell = "----";
             let destDistCell = "---";
             let destEFOBCell = "---";
 
-            if (fpm.getDestination()) {
-                const destStats = stats.get(fpm.getCurrentFlightPlan().waypoints.length - 1);
+            if (targetPlan.destinationAirport) {
+                const destStats = stats.get(targetPlan.legCount - 1);
+
                 if (destStats) {
                     destDistCell = destStats.distanceFromPpos.toFixed(0);
                     destEFOBCell = (NXUnits.kgToUser(mcdu.getDestEFOB(isFlying))).toFixed(1);
+
                     if (isFlying) {
                         destTimeCell = FMCMainDisplay.secondsToUTC(destStats.etaFromPpos);
                     } else {
@@ -705,12 +646,12 @@ class CDUFlightPlanPage {
 
             addLskAt(5, () => mcdu.getDelaySwitchPage(),
                 () => {
-                    CDULateralRevisionPage.ShowPage(mcdu, fpm.getDestination(), fpm.getWaypointsCount() - 1);
+                    CDULateralRevisionPage.ShowPage(mcdu, targetPlan.destinationLeg, targetPlan.destinationLegIndex, forPlan);
                 });
 
             addRskAt(5, () => mcdu.getDelaySwitchPage(),
                 () => {
-                    CDUVerticalRevisionPage.ShowPage(mcdu, fpm.getDestination());
+                    CDUVerticalRevisionPage.ShowPage(mcdu, targetPlan.destinationLeg);
                 });
         }
 
@@ -730,7 +671,7 @@ class CDUFlightPlanPage {
                 } else {
                     offset = destinationAirportOffset; // if in air only dest is available.
                 }
-                CDUFlightPlanPage.ShowPage(mcdu, offset);
+                CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
             };
             mcdu.onDown = () => { // on page down decrement the page offset.
                 if (offset > 0) { // if page not on top
@@ -738,7 +679,7 @@ class CDUFlightPlanPage {
                 } else { // else go to the bottom
                     offset = waypointsAndMarkers.length - 1;
                 }
-                CDUFlightPlanPage.ShowPage(mcdu, offset);
+                CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
             };
             mcdu.onUp = () => {
                 if (offset < waypointsAndMarkers.length - 1) { // if page not on bottom
@@ -746,21 +687,28 @@ class CDUFlightPlanPage {
                 } else { // else go on top
                     offset = 0;
                 }
-                CDUFlightPlanPage.ShowPage(mcdu, offset);
+                CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
             };
         }
         mcdu.setArrows(allowScroll, allowScroll, true, true);
         scrollText[0][1] = "SPD/ALT\xa0\xa0\xa0";
         scrollText[0][2] = isFlying ? "\xa0UTC{sp}{sp}{sp}{sp}" : "TIME{sp}{sp}{sp}{sp}";
         mcdu.setTemplate([
-            [`{left}{small}{sp}${showFrom ? "FROM" : "{sp}{sp}{sp}{sp}"}{end}{yellow}{sp}${showTMPY ? "TMPY" : ""}{end}{end}{right}{small}${SimVar.GetSimVarValue("ATC FLIGHT NUMBER", "string", "FMC")}{sp}{sp}{sp}{end}{end}`],
+            [`{left}{small}{sp}${showFrom ? "FROM" : "{sp}{sp}{sp}{sp}"}{end}${headerText}{end}{right}{small}${flightNumberText}{sp}{sp}{sp}{end}{end}`],
             ...scrollText,
             ...destText
         ]);
     }
 
-    static clearWaypoint(mcdu, fpIndex, offset, scratchpadCallback) {
-        if (fpIndex <= mcdu.flightPlanManager.getActiveWaypointIndex()) {
+    static clearElement(mcdu, fpIndex, offset, forPlan, forAlternate, scratchpadCallback) {
+        if (fpIndex === Fmgc.FlightPlanIndex.Active && mcdu.flightPlanService.hasTemporary) {
+            mcdu.setScratchpadMessage(NXSystemMessages.notAllowed);
+            scratchpadCallback();
+            return;
+        }
+
+        // TODO maybe move this to FMS logic ?
+        if (fpIndex === Fmgc.FlightPlanIndex.Active && fpIndex <= mcdu.flightPlanService.activeLegIndex) {
             // 22-72-00:67
             // Stop clearing TO or FROM waypoints when NAV is engaged
             if (mcdu.navModeEngaged()) {
@@ -769,10 +717,16 @@ class CDUFlightPlanPage {
                 return;
             }
         }
-        // TODO if clear leg before a hold, delete hold too? some other legs like this too..
-        mcdu.removeWaypoint(fpIndex, () => {
-            CDUFlightPlanPage.ShowPage(mcdu, offset);
-        }, !mcdu.flightPlanManager.isCurrentFlightPlanTemporary());
+
+        try {
+            mcdu.flightPlanService.deleteElementAt(fpIndex, forPlan, forAlternate);
+        } catch (e) {
+            console.error(e);
+            mcdu.setScratchpadMessage(NXFictionalMessages.internalError);
+            scratchpadCallback();
+        }
+
+        CDUFlightPlanPage.ShowPage(mcdu, offset, forPlan);
     }
 }
 
@@ -785,11 +739,18 @@ function renderFixTableHeader(isFlying) {
 }
 
 function renderFixHeader(rowObj, showNm = false, showDist = true, showFix = true) {
-    const { fixAnnotation, color, distance, gp, bearingTrack } = rowObj;
-    const distUnit = showNm && !gp;
+    const { fixAnnotation, color, distance, bearingTrack, fpa } = rowObj;
+    let right = showDist ? `{${color}}${distance}{end}` : '';
+    if (fpa) {
+        right += `{white}${fpa}°{end}`;
+    } else if (showNm) {
+        right += `{${color}}NM{end}\xa0\xa0\xa0`;
+    } else {
+        right += '\xa0\xa0\xa0\xa0\xa0';
+    }
     return [
         `${(showFix) ? fixAnnotation.padEnd(7, "\xa0").padStart(8, "\xa0") : ""}`,
-        `${ showDist ? (distUnit ? distance + "NM" : distance) : ''}{white}${(gp ? gp : '').padStart(distUnit ? 3 : 5, '\xa0')}{end}[color]${color}`,
+        right,
         `{${color}}${bearingTrack}{end}\xa0`,
     ];
 }
@@ -804,10 +765,10 @@ function renderFixContent(rowObj, spdRepeat = false, altRepeat = false) {
     ];
 }
 
-function emptyFplnPage() {
+function emptyFplnPage(forPlan) {
     return [
-        ["", "SPD/ALT", "TIME{sp}{sp}{sp}{sp}"],
-        ["PPOS[color]green", "---/ -----", "----{sp}{sp}{sp}{sp}"],
+        ["", "SPD/ALT{sp}{sp}{sp}", "TIME{sp}{sp}{sp}{sp}"],
+        [`PPOS[color]${forPlan === 0 ? 'green' : 'white'}`, "---/ -----", "----{sp}{sp}{sp}{sp}"],
         [""],
         ["---F-PLN DISCONTINUITY---"],
         [""],
@@ -838,4 +799,36 @@ function legTurnIsForced(wp) {
     return (wp.turnDirection === 1 /* Left */ || wp.turnDirection === 2 /* Right */)
         // eslint-disable-next-line semi-spacing
         && wp.additionalData.legType !== 1 /* AF */ && wp.additionalData.legType !== 17 /* RF */;
+}
+
+/**
+ * @param {FlightPlanLeg} leg
+ * @return {boolean}
+ */
+function legHasAltConstraint(leg) {
+    return !!leg.definition.altitudeDescriptor && leg.definition.altitudeDescriptor !== 'G' && leg.definition.altitudeDescriptor !== 'H';
+}
+
+function formatAlt(alt) {
+    // TODO FLs
+    return (Math.round(alt / 10) * 10).toString().padStart(5, '\xa0');
+}
+
+function formatLegAltConstraint(leg) {
+    // always return the minimum altitude?
+    switch (leg.definition.altitudeDescriptor) {
+        case '@':
+        case '+':
+        case '-':
+        case 'B':
+        case 'I':
+        case 'J':
+        case 'V':
+        case 'X':
+        case 'Y':
+            return formatAlt(leg.definition.altitude1);
+        case 'C':
+            return formatAlt(leg.definition.altitude2);
+    }
+    return '';
 }

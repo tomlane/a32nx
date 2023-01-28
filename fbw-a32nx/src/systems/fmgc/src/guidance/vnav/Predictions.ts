@@ -1,3 +1,8 @@
+// Copyright (c) 2021-2022 FlyByWire Simulations
+// Copyright (c) 2021-2022 Synaptic Simulations
+//
+// SPDX-License-Identifier: GPL-3.0
+
 import { MathUtils } from '@shared/MathUtils';
 import { AccelFactorMode, Common, FlapConf } from './common';
 import { EngineModel } from './EngineModel';
@@ -418,6 +423,8 @@ export class Predictions {
      * @param initialFuelWeight weight of fuel at the end of last step
      * @param isaDev ISA deviation (in celsius)
      * @param tropoAltitude tropopause altitude (feet)
+     * @param gearExtended whether the gear is extended
+     * @param flapConfig the flaps configuration
      */
     static geometricStep(
         initialAltitude: number,
@@ -429,6 +436,8 @@ export class Predictions {
         initialFuelWeight: number,
         isaDev: number,
         tropoAltitude: number,
+        gearExtended = false,
+        flapConfig = FlapConf.CLEAN,
     ): StepResults {
         const distanceInFeet = distance * 6076.12;
         const fpaRadians = Math.atan((finalAltitude - initialAltitude) / distanceInFeet);
@@ -467,7 +476,7 @@ export class Predictions {
         let iterations = 0;
         do {
             const liftCoefficient = FlightModel.getLiftCoefficientFromEAS(lift, eas);
-            const dragCoefficient = FlightModel.getDragCoefficient(liftCoefficient);
+            const dragCoefficient = FlightModel.getDragCoefficient(liftCoefficient, false, gearExtended, flapConfig);
             const accelFactorMode = usingMach ? AccelFactorMode.CONSTANT_MACH : AccelFactorMode.CONSTANT_CAS;
             const accelFactor = Common.getAccelerationFactor(mach, midStepAltitude, isaDev, midStepAltitude > tropoAltitude, accelFactorMode);
 
@@ -538,7 +547,7 @@ export class Predictions {
         initialFuelWeight: number,
         isaDev: number,
     ): number {
-        const distanceInFeet = distance * 6076.12;
+        const distanceInFeet = 0 * 6076.12;
         const fpaRadians = Math.atan((finalAltitude - initialAltitude) / distanceInFeet);
         const fpaDegrees = fpaRadians * MathUtils.RADIANS_TO_DEGREES;
         const midStepAltitude = (initialAltitude + finalAltitude) / 2;

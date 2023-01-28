@@ -1,5 +1,7 @@
-//  Copyright (c) 2021 FlyByWire Simulations
-//  SPDX-License-Identifier: GPL-3.0
+// Copyright (c) 2021-2022 FlyByWire Simulations
+// Copyright (c) 2021-2022 Synaptic Simulations
+//
+// SPDX-License-Identifier: GPL-3.0
 
 import { TheoreticalDescentPathCharacteristics } from '@fmgc/guidance/vnav/descent/TheoreticalDescentPath';
 import { DecelPathBuilder, DecelPathCharacteristics } from '@fmgc/guidance/vnav/descent/DecelPathBuilder';
@@ -10,7 +12,9 @@ import { RequestedVerticalMode, TargetAltitude, TargetVerticalSpeed } from '@fmg
 import { AtmosphericConditions } from '@fmgc/guidance/vnav/AtmosphericConditions';
 import { VerticalMode } from '@shared/autopilot';
 import { CoarsePredictions } from '@fmgc/guidance/vnav/CoarsePredictions';
-import { FlightPlans } from '@fmgc/flightplanning/FlightPlanManager';
+import { UpdateThrottler } from '@shared/UpdateThrottler';
+import { FinalAppGuidance } from '@fmgc/guidance/vnav/FinalApp';
+import { FlightPlanService } from '@fmgc/flightplanning/new/FlightPlanService';
 import { Geometry } from '../Geometry';
 import { GuidanceComponent } from '../GuidanceComponent';
 import { ClimbPathBuilder } from './climb/ClimbPathBuilder';
@@ -31,12 +35,15 @@ export class VnavDriver implements GuidanceComponent {
 
     private targetAltitude: TargetAltitude;
 
+    private finalAppGuidance: FinalAppGuidance;
+
     // eslint-disable-next-line camelcase
-    private coarsePredictionsUpdate = new A32NX_Util.UpdateThrottler(5000);
+    private coarsePredictionsUpdate = new UpdateThrottler(5000);
 
     constructor(
         private readonly guidanceController: GuidanceController,
     ) {
+        this.finalAppGuidance = new FinalAppGuidance();
     }
 
     init(): void {
@@ -52,7 +59,7 @@ export class VnavDriver implements GuidanceComponent {
     update(deltaTime: number): void {
         this.atmosphericConditions.update();
 
-        if (this.coarsePredictionsUpdate.canUpdate(deltaTime) !== -1) {
+        if (false && this.coarsePredictionsUpdate.canUpdate(deltaTime) !== -1) {
             CoarsePredictions.updatePredictions(this.guidanceController, this.atmosphericConditions);
         }
 
@@ -75,7 +82,7 @@ export class VnavDriver implements GuidanceComponent {
             if (VnavConfig.VNAV_CALCULATE_CLIMB_PROFILE) {
                 this.currentClimbProfile = ClimbPathBuilder.computeClimbPath(geometry);
             }
-            if (this.guidanceController.flightPlanManager.getApproach(FlightPlans.Active)) {
+            if (FlightPlanService.active.approach) {
                 this.currentApproachProfile = DecelPathBuilder.computeDecelPath(geometry);
             } else {
                 this.currentApproachProfile = null;
@@ -84,6 +91,7 @@ export class VnavDriver implements GuidanceComponent {
 
             this.guidanceController.pseudoWaypoints.acceptVerticalProfile();
         } else if (DEBUG) {
+            // TODO this should erase the profile??!
             console.warn('[FMS/VNAV] Did not compute vertical profile. Reason: no legs in flight plan.');
         }
     }
@@ -124,6 +132,20 @@ export class VnavDriver implements GuidanceComponent {
             const holdSpeedTas = this.atmosphericConditions.computeTasFromCas(this.atmosphericConditions.currentAltitude, holdSpeedCas);
 
             this.guidanceController.setHoldSpeed(holdSpeedTas);
+        }
+
+        const verticalMode: VerticalMode = SimVar.GetSimVarValue('L:A32NX_FMA_VERTICAL_MODE', 'enum');
+
+        this.finalAppGuidance.update(this.currentApproachProfile, this.guidanceController, verticalMode === VerticalMode.FINAL);
+
+        if (verticalMode === VerticalMode.FINAL) {
+            newGuidanceMode = RequestedVerticalMode.VpathSpeed;
+            const params = this.finalAppGuidance.getGuidanceParameters(
+                this.currentApproachProfile,
+                this.guidanceController,
+            );
+            newAltitude = params.targetAltitude;
+            newVerticalSpeed = params.targetVerticalSpeed;
         }
 
         if (newGuidanceMode !== this.guidanceMode) {

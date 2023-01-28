@@ -1,7 +1,7 @@
 //  Copyright (c) 2021 FlyByWire Simulations
 //  SPDX-License-Identifier: GPL-3.0
 
-import { Coordinates } from '../../fmgc/src/flightplanning/data/geo';
+import { Coordinates } from '@fmgc/flightplanning/data/geo';
 
 export type RangeSetting = 10 | 20 | 40 | 80 | 160 | 320;
 export const rangeSettings: RangeSetting[] = [10, 20, 40, 80, 160, 320];
@@ -52,6 +52,7 @@ export enum NdSymbolTypeFlags {
     ActiveFlightPlanVector = 1 << 23,
     CourseReversalLeft = 1 << 24,
     CourseReversalRight = 1 << 25,
+    MissedApproach = 1 << 26,
 }
 
 export interface NdSymbol {
@@ -73,8 +74,7 @@ export interface NdSymbol {
 /**
  * Possible flight plan vector groups to be transmitted to the ND.
  *
- * **NOTE:** this does not necessarily represent the current function of a transmitted flight plan. Those groups are sometimes used for other purposes than their name
- * refers to, for example the DASHED flight plan being used to transmit the non-offset path of an active flight plan with an offset applied.
+ * **NOTE:** this does not necessarily represent the current function of a transmitted flight plan.
  */
 export enum EfisVectorsGroup {
     /**

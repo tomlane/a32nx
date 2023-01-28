@@ -65,53 +65,90 @@ function calculateSecDate(date) {
 
 }
 
+/**
+ *
+ * @param {DatabaseIdent} dbIdent
+ */
+function formatPartNumber(dbIdent) {
+    return dbIdent.provider.toUpperCase();
+}
+
+function formatEffectiveDates(dbIdent) {
+    const [fromYear, fromMonth, fromDay] = dbIdent.effectiveFrom.split('-').map((v) => parseInt(v));
+    const [toYear, toMonth, toDay] = dbIdent.effectiveTo.split('-').map((v) => parseInt(v));
+
+    return `${fromDay.toFixed(0).padStart(2, '0')}${months[fromMonth - 1]}-${toDay.toFixed(0).padStart(2, '0')}${months[toMonth - 1]}`;
+}
+
 class CDUIdentPage {
     static ShowPage(mcdu, confirmDeleteAll = false) {
-        mcdu.clearDisplay();
-        mcdu.page.Current = mcdu.page.IdentPage;
-        mcdu.activeSystem = 'FMGC';
+        mcdu.navigationDatabase.backendDatabase.getDatabaseIdent().then((activeDb) => {
+            const stored = mcdu.dataManager.numberOfStoredElements();
+            const storedRows = Array(4).fill('');
+            if (stored.total > 0) {
+                storedRows[0] = "STORED\xa0\xa0\xa0\xa0";
+                storedRows[1] = `{green}${stored.routes.toFixed(0).padStart(2, '0')}{end}{small}RTES{end}\xa0{green}${stored.runways.toFixed(0).padStart(2, '0')}{end}{small}RWYS{end}`;
+                storedRows[2] = `{green}{big}${stored.waypoints.toFixed(0).padStart(2, '0')}{end}{end}{small}WPTS{end}\xa0{green}{big}${stored.navaids.toFixed(0).padStart(2, '0')}{end}{end}{small}NAVS{end}`;
+                storedRows[3] = confirmDeleteAll ? '{amber}CONFIRM DEL*{end}' : '{cyan}DELETE ALL}{end}';
+            } else if (confirmDeleteAll) {
+                confirmDeleteAll = false;
+            }
 
-        const date = mcdu.getNavDataDateRange();
-        const stored = mcdu.dataManager.numberOfStoredElements();
+            mcdu.clearDisplay();
+            mcdu.page.Current = mcdu.page.IdentPage;
+            mcdu.activeSystem = 'FMGC';
 
-        let storedTitleCell = "";
-        let storedRoutesRunwaysCell = "";
-        let storedWaypointsNavaidsCell = "";
-        let storedDeleteCell = "";
-        if ((stored.routes + stored.runways + stored.waypoints + stored.navaids) > 0) {
-            storedTitleCell = "STORED\xa0\xa0\xa0\xa0";
-            storedRoutesRunwaysCell = `{green}${stored.routes.toFixed(0).padStart(2, '0')}{end}{small}RTES{end}\xa0{green}${stored.runways.toFixed(0).padStart(2, '0')}{end}{small}RWYS{end}`;
-            storedWaypointsNavaidsCell = `{green}{big}${stored.waypoints.toFixed(0).padStart(2, '0')}{end}{end}{small}WPTS{end}\xa0{green}{big}${stored.navaids.toFixed(0).padStart(2, '0')}{end}{end}{small}NAVS{end}`;
-            storedDeleteCell = confirmDeleteAll ? '{amber}CONFIRM DEL*{end}' : '{cyan}DELETE ALL}{end}';
+            mcdu.setTemplate([
+                ["A320-200"],
+                ["\xa0ENG"],
+                ["LEAP-1A26[color]green"],
+                ["\xa0ACTIVE NAV DATA BASE"],
+                [`\xa0{cyan}${formatEffectiveDates(activeDb)}{end}`, `{green}${formatPartNumber(activeDb)}{end}`],
+                ["\xa0SECOND NAV DATA BASE"],
+                ["{small}{SWAP DB BACKEND{end}[color]cyan"],
+                ["", storedRows[0]],
+                ["", storedRows[1]],
+                ["CHG CODE", storedRows[2]],
+                ["{small}[  ]{end}[color]inop", storedRows[3]],
+                ["IDLE/PERF", "SOFTWARE"],
+                ["+0.0/+0.0[color]green", "STATUS/XLOAD>[color]inop"]
+            ]);
+
+            // TODO get rid of this before merging to master!!
+            mcdu.onLeftInput[2] = () => {
+                if (parseInt(NXDataStore.get('FBW_NAVDB_BACKEND', Fmgc.NavigationDatabaseBackend.Msfs)) === Fmgc.NavigationDatabaseBackend.Msfs) {
+                    NXDataStore.set('FBW_NAVDB_BACKEND', Fmgc.NavigationDatabaseBackend.Navigraph.toString());
+                } else {
+                    NXDataStore.set('FBW_NAVDB_BACKEND', Fmgc.NavigationDatabaseBackend.Msfs.toString());
+                }
+                mcdu.flightPlanService.reset();
+                mcdu.initVariables();
+                // takes a short time for the DB to change
+                setTimeout(() => CDUIdentPage.ShowPage(mcdu), 1000);
+            };
 
             // DELETE ALL
             mcdu.onRightInput[4] = () => {
                 if (confirmDeleteAll) {
                     const allDeleted = mcdu.dataManager.deleteAllStoredWaypoints();
                     if (!allDeleted) {
-                        mcdu.setScratchpadMessage(NXSystemMessages.fplnElementRetained);
+                        mcdu.addNewMessage(NXSystemMessages.fplnElementRetained);
                     }
                     CDUIdentPage.ShowPage(mcdu);
                 } else {
                     CDUIdentPage.ShowPage(mcdu, true);
                 }
             };
-        }
-
-        mcdu.setTemplate([
-            ["A320-200"],//This aircraft code is correct and does not include the engine type.
-            ["\xa0ENG"],
-            ["LEAP-1A26[color]green"],
-            ["\xa0ACTIVE NAV DATA BASE"],
-            ["\xa0" + calculateActiveDate(date) + "[color]cyan", "AIRAC[color]green"],
-            ["\xa0SECOND NAV DATA BASE"],
-            ["{small}{" + calculateSecDate(date) + "{end}[color]inop"],
-            ["", storedTitleCell],
-            ["", storedRoutesRunwaysCell],
-            ["CHG CODE", storedWaypointsNavaidsCell],
-            ["{small}[  ]{end}[color]inop", storedDeleteCell],
-            ["IDLE/PERF", "SOFTWARE"],
-            ["+0.0/+0.0[color]green", "STATUS/XLOAD>[color]inop"]
-        ]);
+        }).catch(() => {
+            if (parseInt(NXDataStore.get('FBW_NAVDB_BACKEND', Fmgc.NavigationDatabaseBackend.Msfs)) === Fmgc.NavigationDatabaseBackend.Msfs) {
+                NXDataStore.set('FBW_NAVDB_BACKEND', Fmgc.NavigationDatabaseBackend.Navigraph.toString());
+            } else {
+                NXDataStore.set('FBW_NAVDB_BACKEND', Fmgc.NavigationDatabaseBackend.Msfs.toString());
+            }
+            mcdu.flightPlanService.reset();
+            mcdu.initVariables();
+            // takes a short time for the DB to change
+            setTimeout(() => CDUIdentPage.ShowPage(mcdu), 1000);
+        });
     }
 }

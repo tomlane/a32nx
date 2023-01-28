@@ -1,11 +1,25 @@
 // Copyright (c) 2022 FlyByWire Simulations
 // SPDX-License-Identifier: GPL-3.0
 
+import { FlightArea } from '@fmgc/flightplanning/FlightPlanManager';
+import { FlightPlanService } from '@fmgc/flightplanning/new/FlightPlanService';
+import { FlightPlanLeg } from '@fmgc/flightplanning/new/legs/FlightPlanLeg';
+import { ApproachSegment } from '@fmgc/flightplanning/new/segments/ApproachSegment';
+import { ApproachViaSegment } from '@fmgc/flightplanning/new/segments/ApproachViaSegment';
+import { ArrivalEnrouteTransitionSegment } from '@fmgc/flightplanning/new/segments/ArrivalEnrouteTransitionSegment';
+import { ArrivalSegment } from '@fmgc/flightplanning/new/segments/ArrivalSegment';
+import { DepartureEnrouteTransitionSegment } from '@fmgc/flightplanning/new/segments/DepartureEnrouteTransitionSegment';
+import { DepartureRunwayTransitionSegment } from '@fmgc/flightplanning/new/segments/DepartureRunwayTransitionSegment';
+import { DepartureSegment } from '@fmgc/flightplanning/new/segments/DepartureSegment';
+import { OriginSegment } from '@fmgc/flightplanning/new/segments/OriginSegment';
 import { FlightPlanManager } from '@fmgc/index';
 import { RequiredPerformance } from '@fmgc/navigation/RequiredPerformance';
 import { Coordinates } from 'msfs-geo';
+import { ApproachType } from 'msfs-navdata';
 
 export class Navigation {
+    activeArea: FlightArea = FlightArea.Enroute;
+
     requiredPerformance: RequiredPerformance;
 
     currentPerformance: number | undefined;
@@ -24,7 +38,9 @@ export class Navigation {
     init(): void {}
 
     update(deltaTime: number): void {
-        this.requiredPerformance.update(deltaTime);
+        this.updateFlightArea();
+
+        this.requiredPerformance.update(this.activeArea, deltaTime);
 
         this.updateCurrentPerformance();
 
@@ -45,6 +61,60 @@ export class Navigation {
             SimVar.SetSimVarValue('L:A32NX_FMGC_L_NAV_ACCURACY_HIGH', 'bool', this.accuracyHigh);
             SimVar.SetSimVarValue('L:A32NX_FMGC_R_NAV_ACCURACY_HIGH', 'bool', this.accuracyHigh);
         }
+    }
+
+    private updateFlightArea(): void {
+        this.activeArea = this.getActiveFlightArea();
+    }
+
+    private getActiveFlightArea(): FlightArea {
+        const activeLeg = FlightPlanService.active.activeLeg;
+        if (!activeLeg || !(activeLeg instanceof FlightPlanLeg)) {
+            return FlightArea.Enroute;
+        }
+
+        if (
+            activeLeg.segment instanceof OriginSegment
+            || activeLeg.segment instanceof DepartureRunwayTransitionSegment
+        ) {
+            return FlightArea.Takeoff;
+        }
+
+        if (
+            activeLeg.segment instanceof DepartureSegment
+            || activeLeg.segment instanceof DepartureEnrouteTransitionSegment
+            || activeLeg.segment instanceof ArrivalEnrouteTransitionSegment
+            || activeLeg.segment instanceof ArrivalSegment
+        ) {
+            return FlightArea.Terminal;
+        }
+
+        if (
+            activeLeg.segment instanceof ApproachViaSegment
+            || activeLeg.segment instanceof ApproachSegment
+        ) {
+            switch (FlightPlanService.active.approach?.type) {
+            case ApproachType.Gls:
+            case ApproachType.Ils:
+            case ApproachType.Mls:
+            case ApproachType.MlsTypeA:
+            case ApproachType.MlsTypeBC:
+                return FlightArea.PrecisionApproach;
+            case ApproachType.Fms:
+            case ApproachType.Gps:
+            case ApproachType.Rnav:
+                return FlightArea.GpsApproach;
+            case ApproachType.VorDme:
+            case ApproachType.Vor:
+            case ApproachType.Vortac:
+            case ApproachType.Tacan:
+                return FlightArea.VorApproach;
+            default:
+                return FlightArea.NonPrecisionApproach;
+            }
+        }
+
+        return FlightArea.Enroute;
     }
 
     private updatePosition(): void {

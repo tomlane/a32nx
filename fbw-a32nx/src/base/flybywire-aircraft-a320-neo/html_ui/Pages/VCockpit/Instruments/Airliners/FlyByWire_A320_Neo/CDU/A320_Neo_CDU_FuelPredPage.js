@@ -84,7 +84,8 @@ class CDUFuelPredPage {
                 altIdentCell = mcdu.altDestination.ident;
             }
 
-            const dest = mcdu.flightPlanManager.getDestination();
+            const dest = mcdu.flightPlanService.active.destinationAirport;
+
             if (dest) {
                 destIdentCell = dest.ident;
             }
@@ -164,7 +165,9 @@ class CDUFuelPredPage {
                 }
 
                 mcdu.tryUpdateRouteTrip(isFlying);
-                const dest = mcdu.flightPlanManager.getDestination();
+
+                const dest = mcdu.flightPlanService.active.destinationAirport;
+
                 if (dest) {
                     destIdentCell = dest.ident;
                 }

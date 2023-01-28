@@ -139,13 +139,14 @@ export class ManagedFlightPlan {
             const firstDistFromPpos = firstData?.distanceFromPpos ?? 0;
             const activeWpCumulativeDist = this.activeWaypoint?.cumulativeDistanceInFP ?? 0;
             const distPpos = (waypoint.isVectors) ? 1 : waypoint.cumulativeDistanceInFP - activeWpCumulativeDist + firstDistFromPpos;
-            const data = {
+            const data: WaypointStats = {
                 ident: waypoint.ident,
                 bearingInFp: waypoint.bearingInFP,
                 distanceInFP: waypoint.distanceInFP,
                 distanceFromPpos: distPpos,
                 timeFromPpos: this.computeWaypointTime(waypoint.cumulativeDistanceInFP - activeWpCumulativeDist + firstDistFromPpos),
                 etaFromPpos: this.computeWaypointEta(waypoint.cumulativeDistanceInFP - activeWpCumulativeDist + firstDistFromPpos),
+                magneticVariation: 0,
             };
             stats.set(index, data);
         });
@@ -1570,7 +1571,7 @@ export class ManagedFlightPlan {
     public getOriginRunway(): OneWayRunway | null {
         if (this.originAirfield) {
             if (this.procedureDetails.originRunwayIndex >= 0) {
-                return this.originAirfield.infos.oneWayRunways[this.procedureDetails.originRunwayIndex];
+                return (this.originAirfield.infos as AirportInfo).oneWayRunways[this.procedureDetails.originRunwayIndex];
             }
         }
         return null;
@@ -1579,7 +1580,7 @@ export class ManagedFlightPlan {
     public getDestinationRunway(): OneWayRunway | null {
         if (this.destinationAirfield) {
             if (this.procedureDetails.destinationRunwayIndex >= 0) {
-                return this.destinationAirfield.infos.oneWayRunways[this.procedureDetails.destinationRunwayIndex];
+                return (this.destinationAirfield.infos as AirportInfo).oneWayRunways[this.procedureDetails.destinationRunwayIndex];
             }
         }
         return null;

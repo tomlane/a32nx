@@ -1,6 +1,3 @@
-// Copyright (c) 2022 FlyByWire Simulations
-// SPDX-License-Identifier: GPL-3.0
-
 import FormattedFwcText from '@instruments/common/EWDMessageParser';
 import EWDMessages from '@instruments/common/EWDMessages';
 import { useSimVar } from '@instruments/common/simVars';

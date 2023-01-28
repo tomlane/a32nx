@@ -1,4 +1,3 @@
-import { FlightPlanManager } from '@shared/flightplan';
 import { Atsu } from '../ATSU';
 
 export class Waypoint {
@@ -88,11 +87,16 @@ export class FlightStateObserver {
 
     constructor(mcdu: any, callback: (atsu: Atsu) => void) {
         setInterval(() => {
-            const fp = (mcdu.flightPlanManager as FlightPlanManager).activeFlightPlan;
-            const last = FlightStateObserver.findLastWaypoint(fp);
-            const active = fp?.getWaypoint(fp.activeWaypointIndex);
-            const next = fp?.getWaypoint(fp.activeWaypointIndex + 1);
-            const destination = fp?.getWaypoint(fp.waypoints.length - 1);
+            const fp = null;
+            // const fp = (mcdu.flightPlanManager as FlightPlanManager).activeFlightPlan;
+            const last = null;
+            // const last = FlightStateObserver.findLastWaypoint(fp);
+            const active = null;
+            // const active = fp?.getWaypoint(fp.activeWaypointIndex);
+            const next = null;
+            // const next = fp?.getWaypoint(fp.activeWaypointIndex + 1);
+            const destination = null;
+            // const destination = fp?.getWaypoint(fp.waypoints.length - 1);
             let waypointPassed = false;
 
             this.updatePresentPosition();
