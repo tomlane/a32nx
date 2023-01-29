@@ -8,6 +8,8 @@ use approx::relative_eq;
 use rand::Rng;
 
 const LBS_TO_KG: f64 = 0.4535934;
+const JS_MAX_SAFE_INTEGER: i8 = 53;
+const MAX_CARGO_MOVE: f64 = 60.0;
 
 #[derive(Debug)]
 pub struct PaxSync {
@@ -101,7 +103,7 @@ impl PaxSync {
         if count > 0 {
             let mut skip: i8 = rand::thread_rng().gen_range(0..count);
 
-            for i in 0..53 {
+            for i in 0..JS_MAX_SAFE_INTEGER {
                 let mask = 1 << i;
                 if (n & mask) > 0 {
                     if skip <= 0 {
@@ -193,7 +195,11 @@ impl CargoSync {
     }
 
     pub fn move_one_cargo(&mut self) {
-        let max_move = 60.0;
+        let max_move = if self.is_unit_metric() {
+            MAX_CARGO_MOVE
+        } else {
+            MAX_CARGO_MOVE / LBS_TO_KG
+        };
         let cargo_delta = f64::abs(self.cargo_target - self.cargo);
 
         if self.cargo < self.cargo_target {
