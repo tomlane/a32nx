@@ -1083,7 +1083,6 @@ mod boarding_test {
         test_bed()
     }
 
-    // TODO: Less asserts
     #[test]
     fn boarding_init() {
         let test_bed = test_bed_with().init_vars_kg();

@@ -1,18 +1,5 @@
 /* eslint-disable no-undef */
 // TODO: Deprecate, move boarding backend to WASM
-/*
-function airplaneCanBoard() {
-    const busDC2 = SimVar.GetSimVarValue("L:A32NX_ELEC_DC_2_BUS_IS_POWERED", "Bool");
-    const busDCHot1 = SimVar.GetSimVarValue("L:A32NX_ELEC_DC_HOT_1_BUS_IS_POWERED", "Bool");
-    const gs = SimVar.GetSimVarValue("GPS GROUND SPEED", "knots");
-    const isOnGround = SimVar.GetSimVarValue("SIM ON GROUND", "Bool");
-    const eng1Running = SimVar.GetSimVarValue("ENG COMBUSTION:1", "Bool");
-    const eng2Running = SimVar.GetSimVarValue("ENG COMBUSTION:2", "Bool");
-
-    return !(gs > 0.1 || eng1Running || eng2Running || !isOnGround || (!busDC2 && !busDCHot1));
-}
-*/
-
 function setDefaultWeights() {
     const perPaxWeight = Math.round(NXUnits.kgToUser(84));
     const perBagWeight = Math.round(NXUnits.kgToUser(20));
@@ -45,14 +32,10 @@ class A32NX_Boarding {
 
     async init() {
         setDefaultWeights();
-        // this.updateStationVars();
-        // this.loadPaxPayload();
-        // this.loadCargoZero();
-        // this.loadCargoPayload();
+        this.updateStationVars();
     }
 
     // Shuffle passengers within same section
-    // TODO: Handle this more gracefully
     async shufflePax(paxStation) {
         // Set Active = Desired
         paxStation.activeFlags.setFlags(paxStation.desiredFlags.toNumber());
@@ -273,41 +256,10 @@ class A32NX_Boarding {
     }
 
     async updateStationVars() {
-        // Cargo
-        const currentLoad = Object.values(this.cargoStations).map((cargoStation) => SimVar.GetSimVarValue(`L:${cargoStation.simVar}`, "Number")).reduce((acc, cur) => acc + cur);
-        const loadTarget = Object.values(this.cargoStations).map((cargoStation) => SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number")).reduce((acc, cur) => acc + cur);
-
-        // Pax
-        let currentPax = 0;
-        let paxTarget = 0;
-        let isAllPaxStationFilled = true;
         Object.values(this.paxStations).map((paxStation) => {
             paxStation.activeFlags.setFlags(SimVar.GetSimVarValue(`L:${paxStation.simVar}`, 'Number'));
-            const stationCurrentPax = paxStation.activeFlags.getTotalFilledSeats();
-            currentPax += stationCurrentPax;
-
             paxStation.desiredFlags.setFlags(SimVar.GetSimVarValue(`L:${paxStation.simVar}_DESIRED`, 'Number'));
-            const stationCurrentPaxTarget = paxStation.desiredFlags.getTotalFilledSeats();
-            paxTarget += stationCurrentPaxTarget;
-
-            if (stationCurrentPax !== stationCurrentPaxTarget) {
-                isAllPaxStationFilled = false;
-            }
         });
-
-        let isAllCargoStationFilled = true;
-        Object.values(this.cargoStations).map((cargoStation) => {
-            const stationCurrentLoad = SimVar.GetSimVarValue(`L:${cargoStation.simVar}`, "Number");
-            const stationCurrentLoadTarget = SimVar.GetSimVarValue(`L:${cargoStation.simVar}_DESIRED`, "Number");
-
-            if (stationCurrentLoad !== stationCurrentLoadTarget) {
-                isAllCargoStationFilled = false;
-            }
-        });
-        return [
-            currentPax, paxTarget, isAllPaxStationFilled,
-            currentLoad, loadTarget, isAllCargoStationFilled
-        ];
     }
 
     async manageSoundControllers(currentPax, paxTarget, boardingStartedByUser) {
@@ -349,7 +301,7 @@ class A32NX_Boarding {
 
         const gsxPayloadSyncEnabled = NXDataStore.get("GSX_PAYLOAD_SYNC", 0);
         if (gsxPayloadSyncEnabled === '1') {
-            SimVar.SetSimVarValue("L:A32NX_GSX_PAYLOAD_SYNC_ENABLED", "bool", true);
+            this.updateStationVars();
             const gsxBoardState = Math.round(SimVar.GetSimVarValue("L:FSDT_GSX_BOARDING_STATE", "Number"));
             const gsxDeBoardState = Math.round(SimVar.GetSimVarValue("L:FSDT_GSX_DEBOARDING_STATE", "Number"));
 
