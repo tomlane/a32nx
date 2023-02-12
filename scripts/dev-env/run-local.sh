@@ -1,9 +1,9 @@
 #!/bin/bash
 
 
-# This is a script to use a locally build docker image to run the tests
+# This is a script to use a locally built docker image to run the tests
 
-IMAGE="sha256:9f57eb40bd69f1660e7ee2aecebde7ced61645ea6a614e67234a15de03324ac3"
+IMAGE="sha256:12d198d638db031fd3599c225a3ccd4c2bda487593caf1ef940416465c81d6c5"
 
 # only set `-it` if there is a tty
 if [ -t 0 ] && [ -t 1 ];
