@@ -505,7 +505,7 @@ class CDUFlightPlanPage {
                         CDUFlightPlanPage.clearElement(mcdu, fpIndex, offset, forPlan, inAlternate, scratchpadCallback);
                     }
 
-                    CDUHoldAtPage.ShowPage(mcdu, fpIndex);
+                    CDUHoldAtPage.ShowPage(mcdu, fpIndex, forPlan);
                     scratchpadCallback();
                 });
 
@@ -557,8 +557,8 @@ class CDUFlightPlanPage {
 
             if (cHold) {
                 const { color, immExit, resumeHold, holdSpeed, turnDirection } = scrollWindow[rowI];
-                scrollText[(rowI * 2)] = ['', `{amber}${immExit ? 'IMM\xa0\xa0' : ''}${resumeHold ? 'RESUME\xa0' : ''}{end}`, 'HOLD\xa0\xa0\xa0\xa0\xa0'];
-                scrollText[(rowI * 2) + 1] = [`{${color}}HOLD ${turnDirection}{end}`, `{amber}${immExit ? 'EXIT*' : ''}${resumeHold ? 'HOLD*' : ''}{end}`, `{${color}}{small}{white}SPD{end}\xa0${holdSpeed}{end}{end}`];
+                scrollText[(rowI * 2)] = ["", `{amber}${immExit ? "IMM\xa0\xa0" : ""}${resumeHold ? "RESUME\xa0" : ""}{end}`, "HOLD\xa0\xa0\xa0\xa0\xa0"];
+                scrollText[(rowI * 2) + 1] = [`{${color}}HOLD ${turnDirection === 2 ? "R" : "L"}{end}`, `{amber}${immExit ? "EXIT*" : ""}${resumeHold ? "HOLD*" : ""}{end}`, `{${color}}{small}{white}SPD{end}\xa0${holdSpeed}{end}{end}`];
             } else if (!cMarker && !cPwp) { // Waypoint
                 if (rowI > 0) {
                     const { marker: pMarker, pwp: pPwp, holdResumeExit: pHold, speedConstraint: pSpd, altitudeConstraint: pAlt} = scrollWindow[rowI - 1];
