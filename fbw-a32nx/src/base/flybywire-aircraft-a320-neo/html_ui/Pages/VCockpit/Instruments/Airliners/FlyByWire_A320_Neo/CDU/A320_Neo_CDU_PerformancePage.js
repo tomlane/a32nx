@@ -711,6 +711,9 @@ class CDUPerformancePage {
     static ShowAPPRPage(mcdu) {
         mcdu.clearDisplay();
         mcdu.page.Current = mcdu.page.PerformancePageAppr;
+
+        const plan = mcdu.flightPlanService.active;
+
         CDUPerformancePage._timer = 0;
         CDUPerformancePage._lastPhase = mcdu.flightPhaseManager.phase;
         mcdu.pageUpdate = () => {
@@ -722,7 +725,7 @@ class CDUPerformancePage {
             }
         };
 
-        const closeToDest = mcdu.flightPlanManager.getDestination() && mcdu.flightPlanManager.getDestination().liveDistanceTo <= 180;
+        const closeToDest = plan.destinationAirport && 0 <= 180; // TODO port over (fms-v2)
 
         let qnhCell = "[\xa0\xa0][color]cyan";
         if (isFinite(mcdu.perfApprQNH)) {
@@ -774,11 +777,15 @@ class CDUPerformancePage {
         };
 
         let transAltCell = "\xa0".repeat(5);
-        const hasDestination = !!mcdu.flightPlanManager.getDestination();
+        const hasDestination = !!plan.destinationAirport;
+
         if (hasDestination) {
-            if (mcdu.flightPlanManager.destinationTransitionLevel !== undefined) {
-                transAltCell = (mcdu.flightPlanManager.destinationTransitionLevel * 100).toFixed(0).padEnd(5, "\xa0");
-                if (mcdu.flightPlanManager.destinationTransitionLevelIsFromDb) {
+            const transitionLevel = plan.performanceData.transitionLevel.get();
+
+            if (transitionLevel !== undefined) {
+                transAltCell = (transitionLevel * 100).toFixed(0).padEnd(5, "\xa0");
+
+                if (plan.performanceData.transitionLevelIsFromDatabase.get()) {
                     transAltCell = `{small}${transAltCell}{end}`;
                 }
             } else {
@@ -833,8 +840,8 @@ class CDUPerformancePage {
             }
         };
 
-        const approach = mcdu.flightPlanManager.getApproach();
-        const isILS = approach && approach.approachType === ApproachType.APPROACH_TYPE_ILS;
+        const approach = plan.approach;
+        const isILS = approach && approach.type === 5;
         let radioLabel = "";
         let radioCell = "";
         if (isILS) {
@@ -1088,15 +1095,21 @@ class CDUPerformancePage {
         // FIXME move this in FMS
         SimVar.SetSimVarValue("L:A32NX_ENG_OUT_ACC_ALT", "feet", 1500);
     }
+
     static UpdateThrRedAccFromDestination(mcdu) {
-        // let elevation = SimVar.GetSimVarValue("GROUND ALTITUDE", "feet");
-        // const destination = mcdu.flightPlanManager.getDestination();
-        // if (destination) {
-        //     elevation = await mcdu.facilityLoader.GetAirportFieldElevation(destination.icao);
-        // }
-        // const alt = Math.round((elevation + 1500) / 10) * 10;
-        // mcdu.thrustReductionAltitudeGoaround = alt;
-        // mcdu.accelerationAltitudeGoaround = alt;
+        const plan = mcdu.flightPlanService.active;
+
+        let elevation = SimVar.GetSimVarValue("GROUND ALTITUDE", "feet");
+
+        const destination = plan.destinationAirport;
+
+        if (destination && Number.isFinite(destination.location.alt)) {
+            elevation = destination.location.alt;
+        }
+
+        const alt = Math.round((elevation + 1500) / 10) * 10;
+        mcdu.thrustReductionAltitudeGoaround = alt;
+        mcdu.accelerationAltitudeGoaround = alt;
 
         // FIXME move this in FMS
 
