@@ -57,12 +57,12 @@ class CDUNavRadioPage {
                     mcdu.radioNav.setVORActiveFrequency(1, 0);
                     CDUNavRadioPage.ShowPage(mcdu);
                 } else if (!isFinite(numValue) && value.length >= 2 && value.length <= 3) {
-                    mcdu.getOrSelectVORsByIdent(value, (navaids) => {
-                        if (navaids) {
+                    mcdu.getOrSelectVORsByIdent(value, /** @param navaid {import('msfs-navdata').VhfNavaid} */ (navaid) => {
+                        if (navaid) {
                             mcdu.vor1IdIsPilotEntered = true;
                             mcdu.vor1FreqIsPilotEntered = false;
                             mcdu.vor1IdPilotValue = value;
-                            mcdu.vor1Frequency = navaids.infos.frequencyMHz;
+                            mcdu.vor1Frequency = navaid.frequency;
                             mcdu.radioNav.setVORActiveFrequency(1, mcdu.vor1Frequency);
                             mcdu.vor1Course = 0;
                             mcdu.requestCall(() => {
@@ -202,12 +202,12 @@ class CDUNavRadioPage {
 
                 const numValue = parseFloat(value);
                 if (!isFinite(numValue) && value.length >= 2 && value.length <= 3) {
-                    mcdu.getOrSelectNDBsByIdent(value, (navaids) => {
-                        if (navaids) {
+                    mcdu.getOrSelectNDBsByIdent(value, /** @param navaid {import('msfs-navdata').NdbNavaid} */ (navaid) => {
+                        if (navaid) {
                             mcdu.adf1FreqIsPilotEntered = false;
                             mcdu.adf1IdIsPilotEntered = true;
                             mcdu.adf1IdPilotValue = value;
-                            mcdu.adf1Frequency = navaids.infos.frequencyMHz;
+                            mcdu.adf1Frequency = navaid.frequency;
                             mcdu.radioNav.setADFActiveFrequency(1, mcdu.adf1Frequency);
                             mcdu.requestCall(() => {
                                 CDUNavRadioPage.ShowPage(mcdu);
@@ -277,12 +277,12 @@ class CDUNavRadioPage {
                     mcdu.radioNav.setVORActiveFrequency(2, 0);
                     CDUNavRadioPage.ShowPage(mcdu);
                 } else if (!isFinite(numValue) && value.length >= 2 && value.length <= 3) {
-                    mcdu.getOrSelectVORsByIdent(value, (navaids) => {
-                        if (navaids) {
+                    mcdu.getOrSelectVORsByIdent(value, /** @param navaid {import('msfs-navdata').VhfNavaid} */ (navaid) => {
+                        if (navaid) {
                             mcdu.vor2IdIsPilotEntered = true;
                             mcdu.vor2FreqIsPilotEntered = false;
                             mcdu.vor2IdPilotValue = value;
-                            mcdu.vor2Frequency = navaids.infos.frequencyMHz;
+                            mcdu.vor2Frequency = navaid.frequency;
                             mcdu.radioNav.setVORActiveFrequency(2, mcdu.vor2Frequency);
                             mcdu.vor2Course = 0;
                             mcdu.requestCall(() => {
@@ -381,9 +381,9 @@ class CDUNavRadioPage {
                     mcdu.adf2FreqIsPilotEntered = false;
                     mcdu.adf2IdIsPilotEntered = true;
                     mcdu.adf2IdPilotValue = value;
-                    mcdu.getOrSelectNDBsByIdent(value, (navaids) => {
-                        if (navaids) {
-                            mcdu.adf2Frequency = navaids.infos.frequencyMHz;
+                    mcdu.getOrSelectNDBsByIdent(value, /** @param navaid {import('msfs-navdata').NdbNavaid} */ (navaid) => {
+                        if (navaid) {
+                            mcdu.adf2Frequency = navaid.frequency;
                             mcdu.radioNav.setADFActiveFrequency(2, mcdu.adf2Frequency);
                             mcdu.requestCall(() => {
                                 CDUNavRadioPage.ShowPage(mcdu);
