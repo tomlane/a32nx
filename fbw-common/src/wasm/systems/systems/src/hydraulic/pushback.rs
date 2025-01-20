@@ -1,10 +1,11 @@
-use uom::si::{angle::radian, f64::*};
+use uom::si::{f64::*, length::meter};
 
 use crate::{
-    shared::{low_pass_filter::LowPassFilter, DelayedFalseLogicGate},
+    shared::{
+        low_pass_filter::LowPassFilter, steering_angle_from_plane_yaw_rate, DelayedFalseLogicGate,
+    },
     simulation::{
-        InitContext, Read, SimulationElement, SimulatorReader, SimulatorWriter, UpdateContext,
-        VariableIdentifier, Write,
+        InitContext, Read, SimulationElement, SimulatorReader, UpdateContext, VariableIdentifier,
     },
 };
 use std::time::Duration;
@@ -12,11 +13,8 @@ use std::time::Duration;
 use super::nose_steering::Pushback;
 
 pub struct PushbackTug {
-    nw_strg_disc_memo_id: VariableIdentifier,
     state_id: VariableIdentifier,
-    steer_angle_id: VariableIdentifier,
 
-    steering_angle_raw: Angle,
     steering_angle: LowPassFilter<Angle>,
 
     // Type of pushback:
@@ -34,15 +32,12 @@ impl PushbackTug {
 
     const STATE_NO_PUSHBACK: f64 = 3.;
 
-    const STEERING_ANGLE_FILTER_TIME_CONSTANT: Duration = Duration::from_millis(1500);
+    const STEERING_ANGLE_FILTER_TIME_CONSTANT: Duration = Duration::from_millis(800);
 
     pub fn new(context: &mut InitContext) -> Self {
         Self {
-            nw_strg_disc_memo_id: context.get_identifier("HYD_NW_STRG_DISC_ECAM_MEMO".to_owned()),
             state_id: context.get_identifier("PUSHBACK STATE".to_owned()),
-            steer_angle_id: context.get_identifier("PUSHBACK ANGLE".to_owned()),
 
-            steering_angle_raw: Angle::default(),
             steering_angle: LowPassFilter::new(Self::STEERING_ANGLE_FILTER_TIME_CONSTANT),
 
             state: Self::STATE_NO_PUSHBACK,
@@ -52,16 +47,22 @@ impl PushbackTug {
         }
     }
 
+    fn update_pushback_angle(&mut self, context: &UpdateContext) {
+        if self.is_pushing() {
+            let new_angle = if context.local_velocity().to_ms_vector()[2].abs() < 0.05 {
+                self.steering_angle.output()
+            } else {
+                steering_angle_from_plane_yaw_rate(context, Length::new::<meter>(25.))
+            };
+            self.steering_angle.update(context.delta(), new_angle);
+        }
+    }
+
     pub fn update(&mut self, context: &UpdateContext) {
         self.nose_wheel_steering_pin_inserted
             .update(context, self.is_pushing());
 
-        if self.is_pushing() {
-            self.steering_angle
-                .update(context.delta(), self.steering_angle_raw);
-        } else {
-            self.steering_angle.reset(Angle::default());
-        }
+        self.update_pushback_angle(context);
     }
 
     fn is_pushing(&self) -> bool {
@@ -80,14 +81,5 @@ impl Pushback for PushbackTug {
 impl SimulationElement for PushbackTug {
     fn read(&mut self, reader: &mut SimulatorReader) {
         self.state = reader.read(&self.state_id);
-
-        self.steering_angle_raw = Angle::new::<radian>(reader.read(&self.steer_angle_id));
-    }
-
-    fn write(&self, writer: &mut SimulatorWriter) {
-        writer.write(
-            &self.nw_strg_disc_memo_id,
-            self.is_nose_wheel_steering_pin_inserted(),
-        );
     }
 }
