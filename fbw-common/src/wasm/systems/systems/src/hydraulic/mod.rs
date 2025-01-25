@@ -33,7 +33,9 @@ use uom::si::{
 };
 
 pub mod aerodynamic_model;
+pub mod brake;
 pub mod brake_circuit;
+pub mod bypass_pin;
 pub mod cargo_doors;
 pub mod electrical_generator;
 pub mod electrical_pump_physics;
@@ -1753,7 +1755,7 @@ impl Section {
     }
 
     fn delta_pressure_from_delta_volume(&self, delta_vol: Volume, fluid: &Fluid) -> Pressure {
-        return delta_vol / self.max_high_press_volume * fluid.bulk_mod();
+        delta_vol / self.max_high_press_volume * fluid.bulk_mod()
     }
 
     fn is_primed(&self) -> bool {
