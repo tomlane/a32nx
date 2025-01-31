@@ -2,9 +2,10 @@ use super::{
     A380AlternatingCurrentElectricalSystem, A380DirectCurrentElectricalSystem,
     A380ElectricalOverheadPanel,
 };
+use std::time::Duration;
 use systems::accept_iterable;
 use systems::electrical::{BatteryChargeRectifierUnit, BatteryPushButtons, EmergencyElectrical};
-use systems::shared::RamAirTurbineController;
+use systems::shared::{DelayedFalseLogicGate, RamAirTurbineController};
 use systems::simulation::{InitContext, UpdateContext};
 use systems::{
     electrical::{Battery, Contactor, ElectricalBus, Electricity, StaticInverter},
@@ -50,6 +51,10 @@ pub(super) struct A380DirectCurrentElectrical {
     dc_gnd_flt_service_bus: ElectricalBus,
     tr_2_to_dc_gnd_flt_service_bus_contactor: Contactor,
     dc_bus_2_to_dc_gnd_flt_service_bus_contactor: Contactor,
+
+    ess_in_flight_sply2: DelayedFalseLogicGate,
+    ess_in_flight_contactor: Contactor,
+    dc_ess_subbus: ElectricalBus,
 }
 impl A380DirectCurrentElectrical {
     pub fn new(context: &mut InitContext) -> Self {
@@ -86,19 +91,16 @@ impl A380DirectCurrentElectrical {
             tr_1: BatteryChargeRectifierUnit::new(
                 context,
                 1,
-                ElectricalBusType::DirectCurrent(1),
                 ElectricalBusType::DirectCurrentHot(1),
             ),
             tr_2: BatteryChargeRectifierUnit::new(
                 context,
                 2,
-                ElectricalBusType::DirectCurrent(2),
                 ElectricalBusType::DirectCurrentHot(2),
             ),
             tr_ess: BatteryChargeRectifierUnit::new(
                 context,
                 3,
-                ElectricalBusType::DirectCurrentEssential,
                 ElectricalBusType::DirectCurrentHot(3),
             ),
             tr_1_contactor: Contactor::new(context, "990PU1"),
@@ -117,6 +119,13 @@ impl A380DirectCurrentElectrical {
             ),
             tr_2_to_dc_gnd_flt_service_bus_contactor: Contactor::new(context, "990PX"),
             dc_bus_2_to_dc_gnd_flt_service_bus_contactor: Contactor::new(context, "970PN"),
+
+            ess_in_flight_sply2: DelayedFalseLogicGate::new(Duration::from_secs(10)),
+            ess_in_flight_contactor: Contactor::new(context, "10PH"),
+            dc_ess_subbus: ElectricalBus::new(
+                context,
+                ElectricalBusType::DirectCurrentNamed("108PH"),
+            ),
         }
     }
 
@@ -174,11 +183,8 @@ impl A380DirectCurrentElectrical {
 
         // TODO: Figure out the exact behavior how the APU BUS is powered
         // TODO: Move contactor logic into TR APU
-        self.tr_apu_contactor.close_when(
-            electricity.is_powered(ac_state.tr_apu())
-                && (matches!(apu.signal(), Some(ContactorSignal::Close))
-                    || self.battery_apu.needs_charging()),
-        );
+        self.tr_apu_contactor
+            .close_when(electricity.is_powered(ac_state.tr_apu()));
         electricity.flow(ac_state.tr_apu(), &self.tr_apu_contactor);
         electricity.flow(&self.tr_apu_contactor, &self.apu_bat_bus);
 
@@ -205,7 +211,7 @@ impl A380DirectCurrentElectrical {
             && !self.tr_1.battery_nearly_empty()
             && !ac_state.any_non_essential_bus_powered(electricity)
             || rat.should_deploy();
-        self.tr_1.update(electricity, should_close_elc, false);
+        self.tr_1.update(should_close_elc);
         self.battery_1_contactor
             .close_when(self.tr_1.should_close_battery_connector());
         self.battery_1_emergency_contactor
@@ -217,20 +223,27 @@ impl A380DirectCurrentElectrical {
         electricity.flow(&self.battery_1_emergency_contactor, &self.dc_ess_bus);
 
         electricity.supplied_by(&self.battery_2);
-        self.tr_2.update(electricity, false, false);
+        self.tr_2.update(false);
         self.battery_2_contactor
             .close_when(self.tr_2.should_close_battery_connector());
         electricity.flow(&self.battery_2_contactor, &self.battery_2);
         electricity.flow(&self.hot_bus_2, &self.battery_2);
         electricity.flow(&self.battery_2_contactor, &self.dc_bus_2);
 
+        // TODO: should not close when battery failed (signal from BCRU)
+        // TODO: complete logic
+        let should_close_ess_bat_lc = overhead.bat_is_auto(1)
+            && overhead.bat_is_auto(3)
+            && !self.tr_ess.battery_nearly_empty()
+            && !ac_state.any_non_essential_bus_powered(electricity)
+            || rat.should_deploy();
         let emergency_config = !electricity.is_powered(&self.dc_bus_1)
             && emergency_config.is_active()
             || rat.should_deploy();
         electricity.supplied_by(&self.battery_ess);
-        self.tr_ess.update(electricity, false, emergency_config);
+        self.tr_ess.update(emergency_config);
         self.battery_ess_contactor
-            .close_when(self.tr_ess.should_close_battery_connector());
+            .close_when(self.tr_ess.should_close_battery_connector() || should_close_ess_bat_lc);
         electricity.flow(&self.battery_ess_contactor, &self.battery_ess);
         electricity.flow(&self.hot_bus_ess, &self.battery_ess);
         electricity.flow(&self.battery_ess_contactor, &self.dc_ess_bus);
@@ -243,10 +256,7 @@ impl A380DirectCurrentElectrical {
         // TODO: Move contactor logic into TR APU
         self.battery_apu_contactor.close_when(
             overhead.bat_is_auto(4)
-                && ((matches!(apu.signal(), Some(ContactorSignal::Close))
-                    && self.tr_apu_contactor.is_open())
-                    || (!matches!(apu.signal(), Some(ContactorSignal::Close))
-                        && self.battery_apu.needs_charging())),
+                && (self.tr_apu_contactor.is_open() || self.battery_apu.needs_charging()),
         );
         electricity.flow(&self.battery_apu_contactor, &self.battery_apu);
         electricity.flow(&self.hot_bus_apu, &self.battery_apu);
@@ -299,6 +309,31 @@ impl A380DirectCurrentElectrical {
             &self.dc_bus_2_to_dc_gnd_flt_service_bus_contactor,
             &self.dc_gnd_flt_service_bus,
         );
+    }
+
+    pub(super) fn update_subbuses(
+        &mut self,
+        context: &UpdateContext,
+        electricity: &mut Electricity,
+        ac_state: &impl A380AlternatingCurrentElectricalSystem,
+        flt_condition: bool,
+        emer_config: bool,
+    ) {
+        // 15XH - 493XPA BUS CTL
+        let bus_ctrl = self.static_inverter_contactor.is_closed() && !flt_condition;
+        let ess_in_flight_sply1 = ac_state.any_non_essential_bus_powered(electricity);
+        self.ess_in_flight_sply2
+            .update(context, ess_in_flight_sply1);
+        self.ess_in_flight_contactor.close_when(
+            electricity.is_powered(&self.dc_ess_bus)
+                && (self.ess_in_flight_contactor.is_closed() && !bus_ctrl
+                    || self.ess_in_flight_sply2.output()
+                    || emer_config
+                    || ac_state.ac_ess_bus_powered(electricity)),
+        );
+        electricity.flow(&self.dc_ess_bus, &self.ess_in_flight_contactor);
+        // 108PH is powered by 111PH which is powered by DC ESS through the ESS IN FLIGHT contactor
+        electricity.flow(&self.ess_in_flight_contactor, &self.dc_ess_subbus);
     }
 
     #[cfg(test)]
@@ -408,6 +443,9 @@ impl SimulationElement for A380DirectCurrentElectrical {
             .accept(visitor);
         self.dc_bus_2_to_dc_gnd_flt_service_bus_contactor
             .accept(visitor);
+
+        self.ess_in_flight_contactor.accept(visitor);
+        self.dc_ess_subbus.accept(visitor);
 
         visitor.visit(self);
     }

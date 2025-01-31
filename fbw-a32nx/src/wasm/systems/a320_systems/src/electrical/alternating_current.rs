@@ -3,20 +3,20 @@ use super::{
     A320ElectricalOverheadPanel, A320EmergencyElectricalOverheadPanel,
 };
 use std::time::Duration;
-use systems::apu::ApuGenerator;
-use systems::simulation::InitContext;
 use systems::{
+    apu::ApuGenerator,
     electrical::{
         AlternatingCurrentElectricalSystem, Contactor, ElectricalBus, Electricity,
-        EmergencyGenerator, EngineGenerator, ExternalPowerSource, TransformerRectifier,
+        EmergencyGenerator, ExternalPowerSource, IntegratedDriveGenerator, TransformerRectifier,
     },
+    engine::Engine,
     shared::{
-        AuxiliaryPowerUnitElectrical, DelayedTrueLogicGate, ElectricalBusType, EngineCorrectedN2,
+        AuxiliaryPowerUnitElectrical, DelayedTrueLogicGate, ElectricalBusType,
         EngineFirePushButtons,
     },
-    simulation::{SimulationElement, SimulationElementVisitor, UpdateContext},
+    simulation::{InitContext, SimulationElement, SimulationElementVisitor, UpdateContext},
 };
-use uom::si::{f64::*, velocity::knot};
+use uom::si::{f64::*, power::kilowatt};
 
 pub(super) struct A320AlternatingCurrentElectrical {
     main_power_sources: A320MainPowerSources,
@@ -78,7 +78,7 @@ impl A320AlternatingCurrentElectrical {
         emergency_overhead: &A320EmergencyElectricalOverheadPanel,
         apu: &impl AuxiliaryPowerUnitElectrical,
         engine_fire_push_buttons: &impl EngineFirePushButtons,
-        engines: [&impl EngineCorrectedN2; 2],
+        engines: [&impl Engine; 2],
     ) {
         self.main_power_sources.update(
             context,
@@ -184,18 +184,18 @@ impl A320AlternatingCurrentElectrical {
 
     pub fn update_after_direct_current(
         &mut self,
-        context: &UpdateContext,
         electricity: &mut Electricity,
         emergency_generator: &EmergencyGenerator,
         dc_state: &impl A320DirectCurrentElectricalSystem,
+        spd_cond: bool,
     ) {
         electricity.flow(dc_state.static_inverter(), &self.ac_stat_inv_bus);
 
         self.static_inv_to_ac_ess_bus_contactor
             .close_when(self.should_close_15xe2_contactor(
-                context,
                 electricity,
                 emergency_generator,
+                spd_cond,
             ));
         electricity.flow(
             dc_state.static_inverter(),
@@ -253,13 +253,13 @@ impl A320AlternatingCurrentElectrical {
     /// the static inverter to the AC ESS BUS.
     fn should_close_15xe2_contactor(
         &self,
-        context: &UpdateContext,
         electricity: &Electricity,
         emergency_generator: &EmergencyGenerator,
+        spd_cond: bool,
     ) -> bool {
         !self.any_non_essential_bus_powered(electricity)
             && !electricity.is_powered(emergency_generator)
-            && context.indicated_airspeed() >= Velocity::new::<knot>(50.)
+            && spd_cond
     }
 
     pub fn debug_assert_invariants(&self) {
@@ -338,8 +338,8 @@ impl SimulationElement for A320AlternatingCurrentElectrical {
 }
 
 struct A320MainPowerSources {
-    engine_1_gen: EngineGenerator,
-    engine_2_gen: EngineGenerator,
+    engine_1_gen: IntegratedDriveGenerator,
+    engine_2_gen: IntegratedDriveGenerator,
     engine_generator_contactors: [Contactor; 2],
     bus_tie_1_contactor: Contactor,
     bus_tie_2_contactor: Contactor,
@@ -349,8 +349,18 @@ struct A320MainPowerSources {
 impl A320MainPowerSources {
     fn new(context: &mut InitContext) -> Self {
         A320MainPowerSources {
-            engine_1_gen: EngineGenerator::new(context, 1),
-            engine_2_gen: EngineGenerator::new(context, 2),
+            engine_1_gen: IntegratedDriveGenerator::new(
+                context,
+                1,
+                Power::new::<kilowatt>(90.),
+                390.0..=410.0,
+            ),
+            engine_2_gen: IntegratedDriveGenerator::new(
+                context,
+                2,
+                Power::new::<kilowatt>(90.),
+                390.0..=410.0,
+            ),
             engine_generator_contactors: [
                 Contactor::new(context, "9XU1"),
                 Contactor::new(context, "9XU2"),
@@ -371,7 +381,7 @@ impl A320MainPowerSources {
         emergency_overhead: &A320EmergencyElectricalOverheadPanel,
         apu: &impl AuxiliaryPowerUnitElectrical,
         engine_fire_push_buttons: &impl EngineFirePushButtons,
-        engines: [&impl EngineCorrectedN2; 2],
+        engines: [&impl Engine; 2],
     ) {
         self.engine_1_gen
             .update(context, engines[0], overhead, engine_fire_push_buttons);

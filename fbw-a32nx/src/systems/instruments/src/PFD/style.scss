@@ -107,6 +107,10 @@
   font-size: 6px;
 }
 
+.FontMediumSmaller {
+  font-size: 5.4px;
+}
+
 .FontSmall {
   font-size: 5px;
 }
@@ -153,6 +157,10 @@ tspan.Cyan {
   fill: $display-cyan;
   stroke: none;
 }
+.DimmedCyan.Fill {
+  fill: scale-color($display-cyan, $lightness: -30%);
+  stroke: none;
+}
 
 .None {
   fill: none;
@@ -197,6 +205,10 @@ text.Green {
 }
 text.Amber {
   fill: $display-amber;
+  stroke: none;
+}
+.DimmedAmber.Fill {
+  fill: scale-color($display-amber, $lightness: -30%);
   stroke: none;
 }
 
