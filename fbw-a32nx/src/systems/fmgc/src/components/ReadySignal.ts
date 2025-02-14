@@ -1,22 +1,19 @@
-import { FlightPlanManager } from '@fmgc/wtsdk';
+// Copyright (c) 2021-2023, 2025 FlyByWire Simulations
+// SPDX-License-Identifier: GPL-3.0
+
 import { FmgcComponent } from './FmgcComponent';
+import { GameStateProvider, Wait } from '@microsoft/msfs-sdk';
 
 export class ReadySignal implements FmgcComponent {
-    private baseInstrument: BaseInstrument = null;
+  init(): void {
+    Wait.awaitSubscribable(GameStateProvider.get(), (state) => state === GameState.ingame, true).then(() => {
+      // set ready signal that JS code is initialized and flight is actually started
+      // -> user pressed 'READY TO FLY' button
+      SimVar.SetSimVarValue('L:A32NX_IS_READY', 'number', 1);
+    });
+  }
 
-    private updateThrottler = new A32NX_Util.UpdateThrottler(1000);
-
-    init(baseInstrument: BaseInstrument, _flightPlanManager: FlightPlanManager): void {
-        this.baseInstrument = baseInstrument;
-    }
-
-    update(deltaTime: number): void {
-        if (this.updateThrottler.canUpdate(deltaTime) !== -1
-            && this.baseInstrument.getGameState() === GameState.ingame
-            && SimVar.GetSimVarValue('L:A32NX_IS_READY', 'number') !== 1) {
-            // set ready signal that JS code is initialized and flight is actually started
-            // -> user pressed 'READY TO FLY' button
-            SimVar.SetSimVarValue('L:A32NX_IS_READY', 'number', 1);
-        }
-    }
+  update(_deltaTime: number): void {
+    // noop
+  }
 }

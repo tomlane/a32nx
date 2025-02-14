@@ -19,7 +19,18 @@ use crate::{
     simulation::{InitContext, SimulationElement, SimulatorWriter, UpdateContext},
 };
 
-use super::{ApuGenerator, ApuStartMotor, Turbine, TurbineSignal, TurbineState};
+use super::{ApuConstants, ApuGenerator, ApuStartMotor, Turbine, TurbineSignal, TurbineState};
+
+pub struct Aps3200Constants;
+
+impl ApuConstants for Aps3200Constants {
+    const RUNNING_WARNING_EGT: f64 = 682.; // Deg C
+    const BLEED_AIR_COOLDOWN_DURATION: Duration = Duration::from_secs(120);
+    const COOLDOWN_DURATION: Duration = Duration::ZERO;
+    const AIR_INTAKE_FLAP_CLOSURE_PERCENT: f64 = 7.;
+    const SHOULD_BE_AVAILABLE_DURING_SHUTDOWN: bool = true;
+    const FUEL_LINE_ID: u8 = 18;
+}
 
 pub struct ShutdownAps3200Turbine {
     egt: ThermodynamicTemperature,
@@ -191,7 +202,12 @@ impl Turbine for Starting {
         controller: &dyn ControllerSignal<TurbineSignal>,
     ) -> Box<dyn Turbine> {
         self.since += context.delta();
-        self.n = self.calculate_n();
+        if context.aircraft_preset_quick_mode() {
+            self.n = Ratio::new::<percent>(100.);
+            println!("apu/apu3200.rs: Aircraft Preset Quick Mode is active, setting N to 100%.");
+        } else {
+            self.n = self.calculate_n();
+        };
         self.egt = self.calculate_egt(context);
 
         match controller.signal() {
@@ -518,7 +534,12 @@ impl Turbine for Stopping {
         _: &dyn ControllerSignal<TurbineSignal>,
     ) -> Box<dyn Turbine> {
         self.since += context.delta();
-        self.n = Stopping::calculate_n(self.since) * self.n_factor;
+        if context.aircraft_preset_quick_mode() {
+            self.n = Ratio::new::<percent>(0.);
+            println!("apu/apu3200.rs: Aircraft Preset Quick Mode is active, setting N to 0%.");
+        } else {
+            self.n = Stopping::calculate_n(self.since) * self.n_factor;
+        };
         self.egt =
             self.base_temperature + Stopping::calculate_egt_delta(self.n) - self.egt_delta_at_entry;
 

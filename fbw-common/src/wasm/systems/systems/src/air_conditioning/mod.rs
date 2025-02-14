@@ -7,7 +7,7 @@ use crate::{
         ControllablePneumaticValve, PneumaticContainer, PneumaticPipe, PneumaticValveSignal,
     },
     shared::{
-        arinc429::Arinc429Word, low_pass_filter::LowPassFilter, AverageExt, CabinSimulation,
+        arinc429::Arinc429Word, low_pass_filter::LowPassFilter, AverageExt, CabinSimulation, Clamp,
         ConsumePower, ControllerSignal, ElectricalBusType, ElectricalBuses,
     },
     simulation::{
@@ -128,10 +128,31 @@ pub trait AirConditioningOverheadShared {
 }
 
 pub trait PressurizationOverheadShared {
-    fn is_in_man_mode(&self) -> bool;
+    fn is_in_man_mode(&self) -> bool {
+        false
+    }
     fn ditching_is_on(&self) -> bool;
-    fn ldg_elev_is_auto(&self) -> bool;
-    fn ldg_elev_knob_value(&self) -> f64;
+    fn ldg_elev_is_auto(&self) -> bool {
+        true
+    }
+    fn ldg_elev_knob_value(&self) -> f64 {
+        -2000.
+    }
+    fn is_alt_man_sel(&self) -> bool {
+        false
+    }
+    fn is_vs_man_sel(&self) -> bool {
+        false
+    }
+    fn alt_knob_value(&self) -> Length {
+        Length::default()
+    }
+    fn vs_knob_value(&self) -> Velocity {
+        Velocity::default()
+    }
+    fn extract_is_forced_open(&self) -> bool {
+        false
+    }
 }
 
 pub trait VcmShared {
@@ -152,6 +173,9 @@ pub trait VcmShared {
     }
     fn bulk_isolation_valves_open_allowed(&self) -> bool {
         false
+    }
+    fn overpressure_relief_valve_open_amount(&self) -> Ratio {
+        Ratio::default()
     }
 }
 
@@ -174,7 +198,7 @@ impl ZoneType {
                 } else if number < &20 {
                     *number as usize - 10
                 } else {
-                    *number as usize - 13
+                    *number as usize - 12
                 }
             }
             ZoneType::Cargo(number) => *number as usize + 15,
@@ -258,6 +282,75 @@ impl OutflowValveSignal {
 pub trait CabinPressure {
     fn exterior_pressure(&self) -> Pressure;
     fn cabin_pressure(&self) -> Pressure;
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FdacId {
+    One,
+    Two,
+}
+
+impl Display for FdacId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FdacId::One => write!(f, "1"),
+            FdacId::Two => write!(f, "2"),
+        }
+    }
+}
+
+impl From<FdacId> for usize {
+    fn from(value: FdacId) -> Self {
+        match value {
+            FdacId::One => 1,
+            FdacId::Two => 2,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum VcmId {
+    Fwd,
+    Aft,
+}
+
+impl Display for VcmId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VcmId::Fwd => write!(f, "FWD"),
+            VcmId::Aft => write!(f, "AFT"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum OcsmId {
+    One,
+    Two,
+    Three,
+    Four,
+}
+
+impl OcsmId {
+    pub fn index(&self) -> usize {
+        match self {
+            OcsmId::One => 0,
+            OcsmId::Two => 1,
+            OcsmId::Three => 2,
+            OcsmId::Four => 3,
+        }
+    }
+}
+
+impl Display for OcsmId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OcsmId::One => write!(f, "1"),
+            OcsmId::Two => write!(f, "2"),
+            OcsmId::Three => write!(f, "3"),
+            OcsmId::Four => write!(f, "4"),
+        }
+    }
 }
 
 // Future work this can be different types of failure.
@@ -359,6 +452,7 @@ pub trait PressurizationConstants {
     const OUTFLOW_VALVE_SIZE: f64;
     const SAFETY_VALVE_SIZE: f64;
     const DOOR_OPENING_AREA: f64;
+    const HULL_BREACH_AREA: f64;
 
     const MAX_CLIMB_RATE: f64;
     const MAX_CLIMB_RATE_IN_DESCENT: f64;
@@ -440,10 +534,15 @@ impl CabinFan {
         let mass_flow: f64 = (self.outlet_air.pressure().get::<pascal>()
             * self.design_flow_rate.get::<cubic_meter_per_second>())
             / (Air::R * self.outlet_air.temperature().get::<kelvin>());
+        let max_mass_flow = mass_flow * Self::FAN_EFFICIENCY;
         // If we have flow demand calculated, we assign this directly to the fan flow
         // This is a simplification, we could model the fans, send the signal and read the output
         recirculation_flow_demand
-            .unwrap_or(MassRate::new::<kilogram_per_second>(mass_flow) * Self::FAN_EFFICIENCY)
+            .unwrap_or(MassRate::new::<kilogram_per_second>(max_mass_flow))
+            .clamp(
+                MassRate::default(),
+                MassRate::new::<kilogram_per_second>(max_mass_flow),
+            )
     }
 
     pub fn has_fault(&self) -> bool {
@@ -535,6 +634,10 @@ impl<const ZONES: usize> MixerUnit<ZONES> {
 
     fn outlet_temperature(&self) -> ThermodynamicTemperature {
         self.outlet_air.temperature()
+    }
+
+    fn flow_rate(&self) -> MassRate {
+        self.outlet_air.flow_rate()
     }
 }
 
@@ -733,6 +836,7 @@ impl<const ZONES: usize, const ENGINES: usize> TrimAirSystem<ZONES, ENGINES> {
         for (id, tav) in self.trim_air_valves.iter_mut().enumerate() {
             tav.update(
                 context,
+                mixer_air.flow_rate(),
                 self.trim_air_pressure_regulating_valves
                     .iter()
                     .any(|taprv| taprv.is_open()),
@@ -1033,6 +1137,7 @@ impl TrimAirValve {
     fn update(
         &mut self,
         context: &UpdateContext,
+        pack_flow: MassRate,
         trim_air_pressure_regulating_valve_open: bool,
         from: &mut impl PneumaticContainer,
         tav_controller: TrimAirValveController,
@@ -1061,7 +1166,7 @@ impl TrimAirValve {
         } else {
             self.outlet_air.set_temperature(from.temperature());
             self.outlet_air
-                .set_flow_rate(self.trim_air_valve_air_flow());
+                .set_flow_rate(self.trim_air_valve_air_flow(pack_flow));
         }
 
         self.outlet_air
@@ -1072,8 +1177,13 @@ impl TrimAirValve {
         self.trim_air_valve.open_amount()
     }
 
-    fn trim_air_valve_air_flow(&self) -> MassRate {
-        self.trim_air_valve.fluid_flow()
+    fn trim_air_valve_air_flow(&self, pack_flow: MassRate) -> MassRate {
+        // If there is no pack flow, there should not be any trim air flow either
+        if pack_flow == MassRate::default() {
+            MassRate::new::<kilogram_per_second>(0.)
+        } else {
+            self.trim_air_valve.fluid_flow()
+        }
     }
 
     fn trim_air_valve_has_fault(&self) -> bool {
@@ -1180,6 +1290,7 @@ impl SimulationElement for AirHeater {
     fn receive_power(&mut self, buses: &impl ElectricalBuses) {
         self.is_powered = buses.is_powered(self.powered_by);
     }
+    // TODO: Add power consumtion of cargo heater
 }
 
 #[derive(Clone, Copy)]
@@ -1192,11 +1303,15 @@ pub struct Air {
 impl Air {
     const SPECIFIC_HEAT_CAPACITY_VOLUME: f64 = 0.718; // kJ/kg*K
     const SPECIFIC_HEAT_CAPACITY_PRESSURE: f64 = 1.005; // kJ/kg*K
-    const R: f64 = 287.058; // Specific gas constant for air - m2/s2/K
+    pub const R: f64 = 287.058; // Specific gas constant for air - m2/s2/K
     const MU: f64 = 1.6328e-5; // Viscosity kg/(m*s)
     const K: f64 = 0.022991; // Thermal conductivity - W/(m*C)
     const PRANDT_NUMBER: f64 = 0.677725;
     const GAMMA: f64 = 1.4; // Rate of specific heats for air
+    pub const G: f64 = 9.80665; // Gravity - m/s2
+    pub const T_0: f64 = 288.2; // ISA standard temperature - K
+    pub const P_0: f64 = 1013.25; // ISA standard pressure at sea level - hPa
+    pub const L: f64 = -0.00651; // Adiabatic lapse rate - K/m
 
     pub fn new() -> Self {
         Self {
